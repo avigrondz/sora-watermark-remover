@@ -28,17 +28,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Sora Watermark Remover API", version="1.0.0")
 
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "http://localhost:3001",
-        "https://front-end-production-1f77.up.railway.app"
-    ],  # Frontend URLs
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+allow_origins=["*"],  # Allow all origins temporarily
 )
 
 security = HTTPBearer()
