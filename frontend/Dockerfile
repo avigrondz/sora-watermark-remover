@@ -6,7 +6,11 @@ WORKDIR /app
 # Copy package.json
 COPY package.json ./
 
+<<<<<<< HEAD
 # Install dependencies (use npm install instead of npm ci)
+=======
+# Install dependencies
+>>>>>>> f8582f4cdadbe28d6b5b906f010cfcce49c09a83
 RUN npm install --production
 
 # Copy source code
