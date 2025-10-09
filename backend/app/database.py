@@ -4,7 +4,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables from config.env
+load_dotenv("config.env")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@localhost/sora_watermark_remover")
 

@@ -11,7 +11,8 @@ from app.schemas import User as UserSchema
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Load environment variables from config.env
+load_dotenv("config.env")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
