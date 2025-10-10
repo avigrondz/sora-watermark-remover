@@ -114,3 +114,4 @@ if __name__ == "__main__":
     else:
         print("\n❌ Setup failed. Please check your configuration and try again.")
         sys.exit(1)
+
