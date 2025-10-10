@@ -10,6 +10,7 @@ ENV/
 env.bak/
 venv.bak/
 config.env
+config.local.env
 
 # Node.js
 node_modules/

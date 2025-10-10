@@ -56,8 +56,19 @@ const PricingPage = () => {
   ];
 
   const handleSubscribe = (planName) => {
-    // TODO: Implement Stripe integration
     console.log(`Subscribing to ${planName} plan`);
+    
+    if (planName === 'Free Trial') {
+      // For free trial, just show success message
+      alert('Free trial activated! You can now upload and process videos.');
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+    } else {
+      // For paid plans, show coming soon message
+      alert('Payment integration coming soon! For now, you can use the free trial.');
+      // Redirect to dashboard
+      window.location.href = '/dashboard';
+    }
   };
 
   return (

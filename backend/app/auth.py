@@ -12,6 +12,8 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from config.env
+# Load environment variables - try local first, then fallback to config.env
+load_dotenv("config.local.env")
 load_dotenv("config.env")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
