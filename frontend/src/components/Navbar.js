@@ -1,19 +1,23 @@
 import React from 'react';
-import { Layout, Menu, Button, Space, Typography, Dropdown } from 'antd';
+import { Layout, Menu, Button, Space, Typography, Dropdown, Switch } from 'antd';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   UserOutlined, 
   LogoutOutlined, 
   DashboardOutlined,
-  CrownOutlined 
+  CrownOutlined,
+  SunOutlined,
+  MoonOutlined
 } from '@ant-design/icons';
 import { useAuth } from '../utils/AuthContext';
+import { useTheme } from '../utils/ThemeContext';
 
 const { Header } = Layout;
 const { Text } = Typography;
 
 const Navbar = () => {
   const { user, logout, isAuthenticated, isSubscribed } = useAuth();
+  const { isDarkMode, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -86,33 +90,43 @@ const Navbar = () => {
           }}
         />
 
-        {isAuthenticated() ? (
-          <Space>
-            {isSubscribed() && (
-              <Button type="primary" size="small" icon={<CrownOutlined />}>
-                Pro
+        <Space>
+          <Switch
+            checked={isDarkMode}
+            onChange={toggleTheme}
+            checkedChildren={<MoonOutlined />}
+            unCheckedChildren={<SunOutlined />}
+            style={{ marginRight: '8px' }}
+          />
+          
+          {isAuthenticated() ? (
+            <>
+              {isSubscribed() && (
+                <Button type="primary" size="small" icon={<CrownOutlined />}>
+                  Pro
+                </Button>
+              )}
+              <Dropdown
+                menu={{ items: userMenuItems }}
+                placement="bottomRight"
+                arrow
+              >
+                <Button type="text" icon={<UserOutlined />}>
+                  {user?.email}
+                </Button>
+              </Dropdown>
+            </>
+          ) : (
+            <>
+              <Button onClick={() => navigate('/login')}>
+                Login
               </Button>
-            )}
-            <Dropdown
-              menu={{ items: userMenuItems }}
-              placement="bottomRight"
-              arrow
-            >
-              <Button type="text" icon={<UserOutlined />}>
-                {user?.email}
+              <Button type="primary" onClick={() => navigate('/register')}>
+                Sign Up
               </Button>
-            </Dropdown>
-          </Space>
-        ) : (
-          <Space>
-            <Button onClick={() => navigate('/login')}>
-              Login
-            </Button>
-            <Button type="primary" onClick={() => navigate('/register')}>
-              Sign Up
-            </Button>
-          </Space>
-        )}
+            </>
+          )}
+        </Space>
       </div>
     </Header>
   );

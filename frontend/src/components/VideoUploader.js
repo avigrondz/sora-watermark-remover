@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, message, Progress, Button, Typography } from 'antd';
-import { InboxOutlined, UploadOutlined } from '@ant-design/icons';
+import { VideoCameraOutlined, UploadOutlined } from '@ant-design/icons';
 import { useDropzone } from 'react-dropzone';
 import { videoAPI } from '../services/api';
 
@@ -101,21 +101,39 @@ const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
       >
         <input {...getInputProps()} />
         <p className="ant-upload-drag-icon">
-          <InboxOutlined style={{ fontSize: '3rem', color: '#1890ff' }} />
+          <VideoCameraOutlined className="upload-icon" />
         </p>
-        <p className="ant-upload-text" style={{ fontSize: '1.2rem', marginBottom: '8px' }}>
+        <p className="ant-upload-text">
           {isDragActive ? 'Drop your video here' : 'Click or drag video to upload'}
         </p>
-        <p className="ant-upload-hint" style={{ fontSize: '1rem' }}>
-          Support for MP4, MOV, AVI, MKV, and WebM formats. Max file size: 500MB
+        
+        <button className="upload-button" type="button">
+          Upload Video
+        </button>
+        
+        <div className="upload-specs">
+          <div className="spec-item">up to resolution: ≤ 2K</div>
+          <div className="spec-item">≤ 500MB</div>
+        </div>
+        
+        <div className="upload-specs">
+          <div className="spec-item">Supported formats:</div>
+          <div className="spec-item">mp4</div>
+          <div className="spec-item">m4v</div>
+        </div>
+        
+        <p className="upload-terms">
+          By uploading a video you agree to our Terms of Use and Privacy Policy.
         </p>
+        
         {uploading && (
           <div style={{ marginTop: '16px' }}>
             <Progress 
               percent={Math.round(progress)} 
               status={progress === 100 ? 'success' : 'active'}
+              strokeColor="#8b5cf6"
             />
-            <Text type="secondary" style={{ fontSize: '0.9rem' }}>
+            <Text style={{ fontSize: '0.9rem', color: '#a0a0a0' }}>
               {progress === 100 ? 'Processing...' : 'Uploading...'}
             </Text>
           </div>

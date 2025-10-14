@@ -63,7 +63,6 @@ class SubscriptionCreate(BaseModel):
 class SubscriptionResponse(BaseModel):
     subscription_tier: SubscriptionTier
     expires_at: Optional[datetime]
-    is_active: bool
 
 # Video processing schemas
 class VideoUploadResponse(BaseModel):

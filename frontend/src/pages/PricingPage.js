@@ -55,7 +55,7 @@ const PricingPage = () => {
     }
   ];
 
-  const handleSubscribe = (planName) => {
+  const handleSubscribe = async (planName) => {
     console.log(`Subscribing to ${planName} plan`);
     
     if (planName === 'Free Trial') {
@@ -64,10 +64,50 @@ const PricingPage = () => {
       // Redirect to dashboard
       window.location.href = '/dashboard';
     } else {
-      // For paid plans, show coming soon message
-      alert('Payment integration coming soon! For now, you can use the free trial.');
-      // Redirect to dashboard
-      window.location.href = '/dashboard';
+      // For paid plans, redirect to Stripe Checkout
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          alert('Please log in to subscribe to a plan.');
+          window.location.href = '/login';
+          return;
+        }
+
+        // Determine the price ID based on plan name
+        let priceId;
+        if (planName === 'Monthly') {
+          priceId = 'monthly';
+        } else if (planName === 'Yearly') {
+          priceId = 'yearly';
+        } else {
+          alert('Invalid plan selected.');
+          return;
+        }
+
+        // Call backend to create checkout session
+        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/stripe/create-checkout`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            price_id: priceId
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Redirect to Stripe Checkout
+          window.location.href = data.checkout_url;
+        } else {
+          const error = await response.json();
+          alert(`Error: ${error.detail || 'Failed to create checkout session'}`);
+        }
+      } catch (error) {
+        console.error('Error creating checkout session:', error);
+        alert('An error occurred. Please try again.');
+      }
     }
   };
 

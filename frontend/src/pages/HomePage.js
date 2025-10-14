@@ -17,6 +17,60 @@ const HomePage = () => {
   const navigate = useNavigate();
   const { isAuthenticated, isSubscribed } = useAuth();
 
+  const embedCode = `<!-- Sora Watermark Remover Widget -->
+<div id="sora-watermark-widget" style="
+  max-width: 600px;
+  margin: 0 auto;
+  background: #2a2a2a;
+  border: 2px dashed #404040;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+">
+  <div style="color: #8b5cf6; font-size: 4rem; margin-bottom: 1.5rem;">📹</div>
+  <h3 style="color: white; margin-bottom: 1rem; font-size: 1.2rem;">Remove Watermarks with AI Precision</h3>
+  <p style="color: #a0a0a0; margin-bottom: 2rem;">Upload your video to remove watermarks instantly</p>
+  
+  <input type="file" id="video-upload" accept="video/*" style="display: none;">
+  <button onclick="document.getElementById('video-upload').click()" style="
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 2rem;
+  ">Upload Video</button>
+  
+  <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 2K</span>
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 500MB</span>
+  </div>
+  
+  <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    <span style="color: #a0a0a0; font-size: 0.9rem;">Supported formats:</span>
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">mp4</span>
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">m4v</span>
+  </div>
+  
+  <p style="font-size: 0.85rem; color: #888; margin-top: 1rem;">
+    By uploading a video you agree to our Terms of Use and Privacy Policy.
+  </p>
+</div>
+
+<script>
+document.getElementById('video-upload').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (file) {
+    // Redirect to main site for processing
+    window.open('https://your-domain.com/upload?file=' + encodeURIComponent(file.name), '_blank');
+  }
+});
+</script>`;
+
   const features = [
     {
       icon: <ThunderboltOutlined className="feature-icon" />,
@@ -49,12 +103,53 @@ const HomePage = () => {
             Remove Watermarks with AI Precision
           </Title>
           <Paragraph className="hero-subtitle">
-            Eliminate TikTok, Sora, and other watermarks from your videos with our 
-            state-of-the-art AI technology. Get clean, professional results in seconds.
+            Eliminate TikTok, Sora, and other watermarks from your videos with our state-of-the-art AI technology. Get clean, professional results in seconds.
           </Paragraph>
           
+          {/* Upload Area */}
+          <div className="upload-section">
+            <VideoUploader 
+              onUploadSuccess={(data) => {
+                if (isAuthenticated()) {
+                  // Redirect to dashboard to see processing status
+                  window.location.href = '/dashboard';
+                } else {
+                  // Show success message or redirect to login
+                  console.log('Upload successful:', data);
+                }
+              }}
+              onUploadError={(error) => {
+                console.error('Upload error:', error);
+              }}
+            />
+          </div>
+          
+          {/* Embed Code Section */}
+          <div className="embed-code-section">
+            <h3 style={{ color: 'white', marginBottom: '1rem', textAlign: 'center' }}>
+              Embed This Upload Widget
+            </h3>
+            <div className="code-block-container">
+              <div className="code-block-header">
+                <span style={{ color: '#888', fontSize: '0.9rem' }}>HTML Embed Code</span>
+                <button 
+                  className="copy-button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(embedCode);
+                    alert('Code copied to clipboard!');
+                  }}
+                >
+                  Copy
+                </button>
+              </div>
+              <pre className="code-block">
+                <code>{embedCode}</code>
+              </pre>
+            </div>
+          </div>
+          
           {isAuthenticated() ? (
-            <Space size="large">
+            <Space size="large" style={{ marginTop: '2rem' }}>
               <Button 
                 type="primary" 
                 size="large"
@@ -72,7 +167,7 @@ const HomePage = () => {
               )}
             </Space>
           ) : (
-            <Space size="large">
+            <Space size="large" style={{ marginTop: '2rem' }}>
               <Button 
                 type="primary" 
                 size="large"
@@ -92,7 +187,7 @@ const HomePage = () => {
       </div>
 
       {/* Features Section */}
-      <div style={{ padding: '80px 24px', background: 'white' }}>
+      <div className="section-white" style={{ padding: '80px 24px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <Title level={2} style={{ textAlign: 'center', marginBottom: '48px' }}>
             Why Choose Our Watermark Remover?
@@ -112,7 +207,7 @@ const HomePage = () => {
       </div>
 
       {/* How It Works Section */}
-      <div style={{ padding: '80px 24px', background: '#f5f5f5' }}>
+      <div className="section-gray" style={{ padding: '80px 24px' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <Title level={2} style={{ textAlign: 'center', marginBottom: '48px' }}>
             How It Works
@@ -165,12 +260,7 @@ const HomePage = () => {
       </div>
 
       {/* CTA Section */}
-      <div style={{ 
-        padding: '80px 24px', 
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white',
-        textAlign: 'center'
-      }}>
+      <div className="cta-section">
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <Title level={2} style={{ color: 'white', marginBottom: '24px' }}>
             Ready to Remove Watermarks?
@@ -183,28 +273,14 @@ const HomePage = () => {
               type="primary" 
               size="large"
               onClick={() => navigate(isAuthenticated() ? '/dashboard' : '/register')}
-              style={{ 
-                background: 'white', 
-                color: '#1890ff',
-                border: 'none',
-                height: '48px',
-                padding: '0 32px',
-                fontSize: '16px',
-                fontWeight: '600'
-              }}
+              className="cta-button"
             >
               {isAuthenticated() ? 'Go to Dashboard' : 'Start Free Trial'}
             </Button>
             <Button 
               size="large"
               onClick={() => navigate('/pricing')}
-              style={{ 
-                color: 'white', 
-                borderColor: 'white',
-                height: '48px',
-                padding: '0 32px',
-                fontSize: '16px'
-              }}
+              className="cta-button-secondary"
             >
               View Pricing
             </Button>

@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Typography, Button, Space, message, Empty } from 'antd';
+import { Row, Col, Card, Typography, Button, Space, message, Empty, Alert, Tag } from 'antd';
 import { 
   UploadOutlined, 
   DownloadOutlined, 
   EyeOutlined,
   ClockCircleOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined
+  ExclamationCircleOutlined,
+  CrownOutlined,
+  CheckCircleFilled
 } from '@ant-design/icons';
 import { useAuth } from '../utils/AuthContext';
 import { videoAPI } from '../services/api';
@@ -20,9 +22,17 @@ const DashboardPage = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
 
   useEffect(() => {
     fetchJobs();
+    fetchSubscriptionStatus();
+    
+    // Check for URL parameters to show success/error messages
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('subscription') === 'success') {
+      message.success('Subscription activated successfully! Welcome to premium!');
+    }
   }, []);
 
   const fetchJobs = async () => {
@@ -33,6 +43,22 @@ const DashboardPage = () => {
       message.error('Failed to fetch jobs');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSubscriptionStatus = async () => {
+    try {
+      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/subscription/status`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setSubscriptionStatus(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch subscription status:', error);
     }
   };
 
@@ -107,13 +133,58 @@ const DashboardPage = () => {
     );
   }
 
+  const getSubscriptionTag = () => {
+    if (!subscriptionStatus) return null;
+    
+    const tier = subscriptionStatus.subscription_tier;
+    const expiresAt = subscriptionStatus.expires_at;
+    
+    let color = 'default';
+    let text = tier;
+    let icon = null;
+    
+    if (tier === 'free') {
+      color = 'default';
+      text = 'Free Trial';
+    } else if (tier === 'monthly') {
+      color = 'blue';
+      text = 'Monthly Plan';
+      icon = <CrownOutlined />;
+    } else if (tier === 'yearly') {
+      color = 'gold';
+      text = 'Yearly Plan';
+      icon = <CrownOutlined />;
+    }
+    
+    return (
+      <Tag color={color} icon={icon} style={{ fontSize: '14px', padding: '4px 12px' }}>
+        {text}
+      </Tag>
+    );
+  };
+
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ marginBottom: '32px' }}>
-        <Title level={2}>Dashboard</Title>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <Title level={2} style={{ margin: 0 }}>Dashboard</Title>
+          {getSubscriptionTag()}
+        </div>
         <Text type="secondary">
           Welcome back, {user?.email}! Upload videos to remove watermarks.
         </Text>
+        
+        {/* Subscription Status Alert */}
+        {subscriptionStatus && subscriptionStatus.subscription_tier !== 'free' && (
+          <Alert
+            message="Premium Active"
+            description={`Your ${subscriptionStatus.subscription_tier} subscription is active. Enjoy unlimited video processing!`}
+            type="success"
+            icon={<CheckCircleFilled />}
+            style={{ marginTop: '16px' }}
+            showIcon
+          />
+        )}
       </div>
 
       {/* Upload Section */}

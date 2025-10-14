@@ -1,11 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from typing import List
 import os
 import uuid
 import tempfile
+import stripe
 from datetime import datetime, timedelta
 
 from app.database import get_db, engine
@@ -25,6 +27,15 @@ from services.s3_service import s3_service
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
+
+# Initialize Stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+# Stripe price IDs (you'll need to create these in your Stripe dashboard)
+STRIPE_PRICE_IDS = {
+    "monthly": os.getenv("STRIPE_MONTHLY_PRICE_ID", "price_monthly_placeholder"),
+    "yearly": os.getenv("STRIPE_YEARLY_PRICE_ID", "price_yearly_placeholder")
+}
 
 app = FastAPI(title="Sora Watermark Remover API", version="1.0.0")
 
@@ -221,6 +232,206 @@ def download_video(
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
+
+# ===== STRIPE PAYMENT ENDPOINTS =====
+
+# Create Stripe checkout session
+@app.post("/api/stripe/create-checkout")
+def create_checkout_session(
+    subscription_data: SubscriptionCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    try:
+        # Get the price ID based on the plan
+        price_id = None
+        if subscription_data.price_id == "monthly":
+            price_id = STRIPE_PRICE_IDS["monthly"]
+        elif subscription_data.price_id == "yearly":
+            price_id = STRIPE_PRICE_IDS["yearly"]
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid price ID"
+            )
+        
+        # Create or get Stripe customer
+        stripe_customer_id = current_user.stripe_customer_id
+        if not stripe_customer_id:
+            customer = stripe.Customer.create(
+                email=current_user.email,
+                metadata={"user_id": str(current_user.id)}
+            )
+            stripe_customer_id = customer.id
+            
+            # Update user with Stripe customer ID
+            current_user.stripe_customer_id = stripe_customer_id
+            db.commit()
+        
+        # Create checkout session
+        checkout_session = stripe.checkout.Session.create(
+            customer=stripe_customer_id,
+            payment_method_types=['card'],
+            line_items=[{
+                'price': price_id,
+                'quantity': 1,
+            }],
+            mode='subscription',
+            success_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard?success=true",
+            cancel_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/pricing?canceled=true",
+            metadata={
+                "user_id": str(current_user.id),
+                "plan": subscription_data.price_id
+            }
+        )
+        
+        return {"checkout_url": checkout_session.url}
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stripe error: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+# Handle successful payment
+@app.get("/api/stripe/success")
+def payment_success(session_id: str, db: Session = Depends(get_db)):
+    try:
+        # Retrieve the checkout session
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        if session.payment_status == "paid":
+            # Get user from metadata
+            user_id = session.metadata.get("user_id")
+            plan = session.metadata.get("plan")
+            
+            if user_id:
+                user = db.query(User).filter(User.id == int(user_id)).first()
+                if user:
+                    # Update subscription tier
+                    if plan == "monthly":
+                        user.subscription_tier = SubscriptionTier.MONTHLY
+                        user.subscription_expires_at = datetime.utcnow() + timedelta(days=30)
+                    elif plan == "yearly":
+                        user.subscription_tier = SubscriptionTier.YEARLY
+                        user.subscription_expires_at = datetime.utcnow() + timedelta(days=365)
+                    
+                    db.commit()
+                    
+                    return RedirectResponse(
+                        url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard?subscription=success"
+                    )
+        
+        return RedirectResponse(
+            url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/pricing?error=payment_failed"
+        )
+        
+    except Exception as e:
+        return RedirectResponse(
+            url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/pricing?error=server_error"
+        )
+
+# Handle Stripe webhooks
+@app.post("/api/stripe/webhook")
+async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
+    payload = await request.body()
+    sig_header = request.headers.get('stripe-signature')
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, os.getenv("STRIPE_WEBHOOK_SECRET")
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    # Handle the event
+    if event['type'] == 'customer.subscription.updated':
+        subscription = event['data']['object']
+        customer_id = subscription['customer']
+        
+        # Find user by Stripe customer ID
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        if user:
+            if subscription['status'] == 'active':
+                # Subscription is active
+                if subscription['items']['data'][0]['price']['id'] == STRIPE_PRICE_IDS["monthly"]:
+                    user.subscription_tier = SubscriptionTier.MONTHLY
+                elif subscription['items']['data'][0]['price']['id'] == STRIPE_PRICE_IDS["yearly"]:
+                    user.subscription_tier = SubscriptionTier.YEARLY
+            else:
+                # Subscription is inactive/canceled
+                user.subscription_tier = SubscriptionTier.FREE
+            
+            db.commit()
+    
+    elif event['type'] == 'customer.subscription.deleted':
+        subscription = event['data']['object']
+        customer_id = subscription['customer']
+        
+        # Find user and downgrade to free
+        user = db.query(User).filter(User.stripe_customer_id == customer_id).first()
+        if user:
+            user.subscription_tier = SubscriptionTier.FREE
+            user.subscription_expires_at = None
+            db.commit()
+    
+    return {"status": "success"}
+
+# Get user subscription status
+@app.get("/api/subscription/status", response_model=SubscriptionResponse)
+def get_subscription_status(
+    current_user: User = Depends(get_current_active_user)
+):
+    return SubscriptionResponse(
+        subscription_tier=current_user.subscription_tier,
+        expires_at=current_user.subscription_expires_at
+    )
+
+# Cancel subscription
+@app.post("/api/subscription/cancel")
+def cancel_subscription(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    if not current_user.stripe_customer_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active subscription found"
+        )
+    
+    try:
+        # Get customer's subscriptions
+        subscriptions = stripe.Subscription.list(
+            customer=current_user.stripe_customer_id,
+            status='active'
+        )
+        
+        if subscriptions.data:
+            # Cancel the first active subscription
+            stripe.Subscription.modify(
+                subscriptions.data[0].id,
+                cancel_at_period_end=True
+            )
+            
+            return {"message": "Subscription will be canceled at the end of the current period"}
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No active subscription found"
+            )
+            
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stripe error: {str(e)}"
+        )
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sora Watermark Remover - Upload Box</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .sora-upload-container {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .upload-box {
+            background: #2a2a2a;
+            border: 2px dashed #404040;
+            border-radius: 12px;
+            padding: 60px 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-box:hover {
+            border-color: #8b5cf6;
+            background: #1f1f1f;
+            transform: translateY(-2px);
+        }
+
+        .upload-box.dragover {
+            border-color: #8b5cf6;
+            background: #1f1f1f;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            color: #8b5cf6;
+            margin-bottom: 1.5rem;
+            display: block;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #a0a0a0;
+            font-weight: 500;
+        }
+
+        .upload-button {
+            background: #8b5cf6;
+            border: none;
+            color: white;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 2rem;
+        }
+
+        .upload-button:hover {
+            background: #7c3aed;
+            transform: translateY(-1px);
+        }
+
+        .upload-specs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .spec-item {
+            background: #f0f0f0;
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .upload-terms {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 1rem;
+        }
+
+        .progress-container {
+            margin-top: 16px;
+            display: none;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #404040;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #8b5cf6;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .upload-box {
+                padding: 40px 20px;
+            }
+            
+            .upload-icon {
+                font-size: 3rem;
+            }
+            
+            .upload-text {
+                font-size: 1rem;
+            }
+        }
+
+        /* Video camera icon using CSS */
+        .video-camera-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 24px;
+            position: relative;
+        }
+
+        .video-camera-icon::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 48px;
+            height: 36px;
+            border: 3px solid #8b5cf6;
+            border-radius: 6px;
+            background: transparent;
+        }
+
+        .video-camera-icon::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            border: 3px solid #8b5cf6;
+            border-radius: 50%;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="sora-upload-container">
+        <div class="upload-box" id="uploadBox">
+            <div class="video-camera-icon"></div>
+            <p class="upload-text" id="uploadText">Click or drag video to upload</p>
+            
+            <button class="upload-button" id="uploadButton">Upload Video</button>
+            
+            <div class="upload-specs">
+                <div class="spec-item">up to resolution: ≤ 2K</div>
+                <div class="spec-item">≤ 500MB</div>
+            </div>
+            
+            <div class="upload-specs">
+                <div class="spec-item">Supported formats:</div>
+                <div class="spec-item">mp4</div>
+                <div class="spec-item">m4v</div>
+            </div>
+            
+            <p class="upload-terms">
+                By uploading a video you agree to our Terms of Use and Privacy Policy.
+            </p>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Uploading...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class SoraUploadBox {
+            constructor() {
+                this.uploadBox = document.getElementById('uploadBox');
+                this.uploadText = document.getElementById('uploadText');
+                this.uploadButton = document.getElementById('uploadButton');
+                this.progressContainer = document.getElementById('progressContainer');
+                this.progressFill = document.getElementById('progressFill');
+                this.progressText = document.getElementById('progressText');
+                this.isUploading = false;
+                
+                this.init();
+            }
+            
+            init() {
+                // Click to upload
+                this.uploadBox.addEventListener('click', () => {
+                    if (!this.isUploading) {
+                        this.triggerFileInput();
+                    }
+                });
+                
+                // Drag and drop
+                this.uploadBox.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    this.uploadBox.classList.add('dragover');
+                });
+                
+                this.uploadBox.addEventListener('dragleave', () => {
+                    this.uploadBox.classList.remove('dragover');
+                });
+                
+                this.uploadBox.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    this.uploadBox.classList.remove('dragover');
+                    
+                    if (!this.isUploading && e.dataTransfer.files.length > 0) {
+                        this.handleFile(e.dataTransfer.files[0]);
+                    }
+                });
+                
+                // Button click
+                this.uploadButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!this.isUploading) {
+                        this.triggerFileInput();
+                    }
+                });
+            }
+            
+            triggerFileInput() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'video/mp4,video/m4v,video/mov,video/avi,video/mkv,video/webm';
+                input.style.display = 'none';
+                
+                input.addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFile(e.target.files[0]);
+                    }
+                });
+                
+                document.body.appendChild(input);
+                input.click();
+                document.body.removeChild(input);
+            }
+            
+            handleFile(file) {
+                // Validate file type
+                if (!file.type.startsWith('video/')) {
+                    alert('Please select a video file');
+                    return;
+                }
+                
+                // Validate file size (500MB limit)
+                const maxSize = 500 * 1024 * 1024; // 500MB
+                if (file.size > maxSize) {
+                    alert('File size must be less than 500MB');
+                    return;
+                }
+                
+                this.startUpload(file);
+            }
+            
+            startUpload(file) {
+                this.isUploading = true;
+                this.uploadText.textContent = 'Uploading...';
+                this.progressContainer.style.display = 'block';
+                this.uploadButton.style.display = 'none';
+                
+                // Simulate upload progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += Math.random() * 10;
+                    if (progress >= 90) {
+                        progress = 90;
+                        clearInterval(progressInterval);
+                    }
+                    this.updateProgress(progress);
+                }, 200);
+                
+                // Simulate upload completion after 3-5 seconds
+                setTimeout(() => {
+                    clearInterval(progressInterval);
+                    this.updateProgress(100);
+                    this.progressText.textContent = 'Processing...';
+                    
+                    // Simulate processing completion
+                    setTimeout(() => {
+                        this.uploadComplete();
+                    }, 2000);
+                }, 3000 + Math.random() * 2000);
+            }
+            
+            updateProgress(percent) {
+                this.progressFill.style.width = percent + '%';
+            }
+            
+            uploadComplete() {
+                this.isUploading = false;
+                this.uploadText.textContent = 'Click or drag video to upload';
+                this.progressContainer.style.display = 'none';
+                this.uploadButton.style.display = 'block';
+                
+                // Reset progress
+                this.progressFill.style.width = '0%';
+                this.progressText.textContent = 'Uploading...';
+                
+                // You can add your actual upload logic here
+                console.log('Upload completed!');
+                alert('Video uploaded successfully!');
+            }
+        }
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new SoraUploadBox();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embed Code for Sora Upload Box</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .code-container {
+            background: #1e1e1e;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            position: relative;
+        }
+        
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .code-title {
+            color: #fff;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        
+        .copy-button {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .copy-button:hover {
+            background: #7c3aed;
+        }
+        
+        .copy-button.copied {
+            background: #52c41a;
+        }
+        
+        pre {
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .instructions {
+            background: #f0f8ff;
+            border: 1px solid #8b5cf6;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        
+        .instructions h3 {
+            color: #8b5cf6;
+            margin-bottom: 10px;
+        }
+        
+        .instructions ol {
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sora Watermark Remover - Embeddable Upload Box</h1>
+    
+    <div class="instructions">
+        <h3>How to embed this upload box on your WordPress site:</h3>
+        <ol>
+            <li>Copy the HTML code below</li>
+            <li>In your WordPress admin, go to Pages or Posts</li>
+            <li>Add a "Custom HTML" block</li>
+            <li>Paste the code into the HTML block</li>
+            <li>Save and publish your page</li>
+        </ol>
+    </div>
+    
+    <div class="code-container">
+        <div class="code-header">
+            <span class="code-title">Embed Code</span>
+            <button class="copy-button" onclick="copyCode()">Copy Code</button>
+        </div>
+        <pre id="embedCode"><!-- Sora Watermark Remover Upload Box -->
+<div id="sora-upload-widget" style="max-width: 600px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;">
+    <div style="background: #2a2a2a; border: 2px dashed #404040; border-radius: 12px; padding: 60px 40px; text-align: center; cursor: pointer; transition: all 0.3s ease; position: relative; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);" 
+         onmouseover="this.style.borderColor='#8b5cf6'; this.style.background='#1f1f1f'; this.style.transform='translateY(-2px)'"
+         onmouseout="this.style.borderColor='#404040'; this.style.background='#2a2a2a'; this.style.transform='translateY(0)'"
+         onclick="document.getElementById('sora-file-input').click()">
+        
+        <!-- Video Camera Icon -->
+        <div style="width: 64px; height: 64px; margin: 0 auto 24px; position: relative;">
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 48px; height: 36px; border: 3px solid #8b5cf6; border-radius: 6px; background: transparent;"></div>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; border: 3px solid #8b5cf6; border-radius: 50%; background: transparent;"></div>
+        </div>
+        
+        <p style="font-size: 1.2rem; margin-bottom: 1rem; color: #a0a0a0; font-weight: 500;">Click or drag video to upload</p>
+        
+        <button style="background: #8b5cf6; border: none; color: white; padding: 12px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; margin-bottom: 2rem;" 
+                onmouseover="this.style.background='#7c3aed'; this.style.transform='translateY(-1px)'"
+                onmouseout="this.style.background='#8b5cf6'; this.style.transform='translateY(0)'">
+            Upload Video
+        </button>
+        
+        <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <div style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">up to resolution: ≤ 2K</div>
+            <div style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">≤ 500MB</div>
+        </div>
+        
+        <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+            <div style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">Supported formats:</div>
+            <div style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">mp4</div>
+            <div style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500;">m4v</div>
+        </div>
+        
+        <p style="font-size: 0.85rem; color: #888; margin-top: 1rem;">
+            By uploading a video you agree to our Terms of Use and Privacy Policy.
+        </p>
+    </div>
+    
+    <!-- Hidden file input -->
+    <input type="file" id="sora-file-input" accept="video/mp4,video/m4v,video/mov,video/avi,video/mkv,video/webm" style="display: none;" onchange="handleFileUpload(this.files[0])">
+</div>
+
+<script>
+function handleFileUpload(file) {
+    if (!file) return;
+    
+    // Validate file type
+    if (!file.type.startsWith('video/')) {
+        alert('Please select a video file');
+        return;
+    }
+    
+    // Validate file size (500MB limit)
+    const maxSize = 500 * 1024 * 1024; // 500MB
+    if (file.size > maxSize) {
+        alert('File size must be less than 500MB');
+        return;
+    }
+    
+    // Show upload progress
+    const uploadBox = document.querySelector('#sora-upload-widget > div');
+    const originalText = uploadBox.querySelector('p');
+    originalText.textContent = 'Uploading...';
+    
+    // Simulate upload progress
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress >= 90) {
+            progress = 90;
+            clearInterval(progressInterval);
+        }
+    }, 200);
+    
+    // Simulate upload completion
+    setTimeout(() => {
+        clearInterval(progressInterval);
+        originalText.textContent = 'Processing...';
+        
+        setTimeout(() => {
+            originalText.textContent = 'Click or drag video to upload';
+            alert('Video uploaded successfully!');
+        }, 2000);
+    }, 3000 + Math.random() * 2000);
+}
+
+// Add drag and drop functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadBox = document.querySelector('#sora-upload-widget > div');
+    
+    uploadBox.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.style.borderColor = '#8b5cf6';
+        this.style.background = '#1f1f1f';
+        this.style.transform = 'scale(1.02)';
+    });
+    
+    uploadBox.addEventListener('dragleave', function() {
+        this.style.borderColor = '#404040';
+        this.style.background = '#2a2a2a';
+        this.style.transform = 'scale(1)';
+    });
+    
+    uploadBox.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.borderColor = '#404040';
+        this.style.background = '#2a2a2a';
+        this.style.transform = 'scale(1)';
+        
+        if (e.dataTransfer.files.length > 0) {
+            handleFileUpload(e.dataTransfer.files[0]);
+        }
+    });
+});
+</script></pre>
+    </div>
+
+    <script>
+        function copyCode() {
+            const code = document.getElementById('embedCode').textContent;
+            navigator.clipboard.writeText(code).then(function() {
+                const button = document.querySelector('.copy-button');
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Could not copy text: ', err);
+                alert('Could not copy to clipboard. Please select and copy manually.');
+            });
+        }
+    </script>
+</body>
+</html>
