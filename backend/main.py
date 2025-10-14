@@ -101,12 +101,18 @@ def upload_video(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Check subscription status
+    # Check free trial limits for free users
     if current_user.subscription_tier == SubscriptionTier.FREE:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Subscription required for video processing"
-        )
+        if current_user.free_uploads_used >= current_user.free_uploads_limit:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Free trial limit reached. Please subscribe to continue."
+            )
+        
+        # Increment free uploads used
+        current_user.free_uploads_used += 1
+        current_user.last_free_upload_at = datetime.utcnow()
+        db.commit()
     
     # Validate file type
     if not file.content_type.startswith('video/'):
@@ -125,8 +131,12 @@ def upload_video(
         temp_file.write(content)
         temp_path = temp_file.name
     
-    # Upload to S3
-    s3_key = f"uploads/{current_user.id}/{unique_filename}"
+    # Upload to S3 with organized path structure
+    if current_user.subscription_tier == SubscriptionTier.FREE:
+        s3_key = f"uploads/free/{current_user.id}/{unique_filename}"
+    else:
+        s3_key = f"uploads/paid/{current_user.id}/{unique_filename}"
+    
     if not s3_service.upload_file(temp_path, s3_key):
         os.unlink(temp_path)
         raise HTTPException(

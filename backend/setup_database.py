@@ -26,7 +26,7 @@ def setup_database():
         
         print("✅ Database tables created successfully!")
         
-        # Test database connection
+        # Test database connections
         with engine.connect() as conn:
             result = conn.execute(text("SELECT 1"))
             print("✅ Database connection test successful!")

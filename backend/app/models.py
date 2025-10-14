@@ -27,6 +27,12 @@ class User(Base):
     subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.FREE)
     subscription_expires_at = Column(DateTime, nullable=True)
     stripe_customer_id = Column(String, nullable=True)
+    
+    # Free trial tracking
+    free_uploads_used = Column(Integer, default=0)
+    free_uploads_limit = Column(Integer, default=1)  # 1 free upload
+    last_free_upload_at = Column(DateTime, nullable=True)
+    
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     
