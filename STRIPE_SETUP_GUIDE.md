@@ -160,3 +160,4 @@ Once everything is working:
 - Webhooks keep your database in sync with Stripe
 
 Your payment integration is now complete! 🚀
+

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Typography, Button, Space, message, Empty, Alert, Tag } from 'antd';
 import { 
   UploadOutlined, 
@@ -19,6 +20,7 @@ const { Title, Text } = Typography;
 
 const DashboardPage = () => {
   const { user, isSubscribed } = useAuth();
+  const navigate = useNavigate();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -63,9 +65,10 @@ const DashboardPage = () => {
   };
 
   const handleUploadSuccess = (data) => {
-    message.success('Video uploaded successfully! Processing started.');
+    message.success('Video uploaded successfully! Redirecting to processing...');
     setUploading(false);
-    fetchJobs(); // Refresh jobs list
+    // Redirect to processing page
+    navigate(`/process/${data.job_id}`);
   };
 
   const handleUploadError = (error) => {

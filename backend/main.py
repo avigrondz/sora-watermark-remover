@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 import os
@@ -9,6 +9,7 @@ import uuid
 import tempfile
 import stripe
 from datetime import datetime, timedelta
+import json
 
 from app.database import get_db, engine
 from app.models import Base, User, Job, JobStatus, SubscriptionTier
@@ -24,6 +25,8 @@ from app.auth import (
 )
 from app.tasks import process_video
 from services.s3_service import s3_service
+from services.local_storage import local_storage
+from services.video_processor import process_video_with_delogo
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -103,16 +106,13 @@ def upload_video(
 ):
     # Check free trial limits for free users
     if current_user.subscription_tier == SubscriptionTier.FREE:
-        if current_user.free_uploads_used >= current_user.free_uploads_limit:
+        # Count existing jobs for this user (simple approach)
+        existing_jobs = db.query(Job).filter(Job.user_id == current_user.id).count()
+        if existing_jobs >= 1:  # 1 free upload limit
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Free trial limit reached. Please subscribe to continue."
             )
-        
-        # Increment free uploads used
-        current_user.free_uploads_used += 1
-        current_user.last_free_upload_at = datetime.utcnow()
-        db.commit()
     
     # Validate file type
     if not file.content_type.startswith('video/'):
@@ -137,7 +137,15 @@ def upload_video(
     else:
         s3_key = f"uploads/paid/{current_user.id}/{unique_filename}"
     
-    if not s3_service.upload_file(temp_path, s3_key):
+    # Try S3 first, fallback to local storage
+    upload_success = False
+    try:
+        upload_success = s3_service.upload_file(temp_path, s3_key)
+    except Exception as e:
+        print(f"S3 upload failed, using local storage: {e}")
+        upload_success = local_storage.upload_file(temp_path, s3_key)
+    
+    if not upload_success:
         os.unlink(temp_path)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -155,15 +163,20 @@ def upload_video(
     db.commit()
     db.refresh(job)
     
-    # Start processing task
-    process_video.delay(job.id)
+    # Return response immediately; keep job in PENDING so user can select watermarks
+    print(f"✅ Job {job.id} created successfully (awaiting watermark selections)")
     
     # Clean up temp file
-    os.unlink(temp_path)
+    try:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+            print(f"✅ Temp file cleaned up: {temp_path}")
+    except Exception as e:
+        print(f"⚠️  Temp file cleanup failed: {e}")
     
     return VideoUploadResponse(
         job_id=job.id,
-        message="Video uploaded successfully. Processing started."
+        message="Video uploaded successfully. Proceed to select watermarks."
     )
 
 # Get job status
@@ -221,11 +234,45 @@ def download_video(
             detail="Processed file not found"
         )
     
-    # Generate presigned URL for download
-    download_url = s3_service.generate_presigned_url(
-        job.processed_file_path,
-        expiration=3600  # 1 hour
-    )
+    # Generate download URL - always use local server for development
+    download_url = None
+    
+    # Prefer S3 first when key looks like an S3 key
+    try:
+        if job.processed_file_path.startswith("uploads/"):
+            download_url = s3_service.generate_presigned_url(
+                job.processed_file_path,
+                expiration=3600
+            )
+            if download_url:
+                print(f"✅ Generated S3 download URL for processed file: {job.processed_file_path}")
+    except Exception as e:
+        print(f"⚠️ S3 presign failed, will try local: {e}")
+
+    # If S3 wasn't available, fall back to local streaming endpoint
+    if not download_url:
+        actual_file_path = None
+        # Direct path stored
+        if job.processed_file_path and os.path.isabs(job.processed_file_path) and os.path.exists(job.processed_file_path):
+            actual_file_path = job.processed_file_path
+            print(f"✅ Using absolute processed path: {actual_file_path}")
+        else:
+            # Try to find in local storage by filename match
+            print(f"Searching for processed file locally: {job.processed_file_path}")
+            for root, dirs, files in os.walk("local_storage"):
+                for name in files:
+                    if name in job.processed_file_path:
+                        candidate = os.path.join(root, name)
+                        if os.path.exists(candidate):
+                            actual_file_path = candidate
+                            print(f"✅ Found processed file in local storage: {candidate}")
+                            break
+                if actual_file_path:
+                    break
+
+        if actual_file_path and os.path.exists(actual_file_path):
+            download_url = f"http://localhost:8000/api/videos/{job.id}/stream"
+            print(f"✅ Using local streaming URL for download: {download_url}")
     
     if not download_url:
         raise HTTPException(
@@ -242,6 +289,242 @@ def download_video(
 @app.get("/api/health")
 def health_check():
     return {"status": "healthy", "timestamp": datetime.utcnow()}
+
+# Watermark selection endpoints
+@app.post("/api/jobs/{job_id}/watermarks")
+def add_watermark_selection(
+    job_id: int,
+    watermark_data: dict,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Add watermark selection to a job"""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found"
+        )
+    
+    if job.status != JobStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Job is not in pending state"
+        )
+    
+    # Store watermark selection data
+    job.watermark_selections = json.dumps(watermark_data)
+    db.commit()
+    
+    return {"message": "Watermark selection saved", "job_id": job_id}
+
+@app.get("/api/jobs/{job_id}/watermarks")
+def get_watermark_selections(
+    job_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get watermark selections for a job"""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found"
+        )
+    
+    if job.watermark_selections:
+        return json.loads(job.watermark_selections)
+    else:
+        return {"watermarks": []}
+
+@app.post("/api/jobs/{job_id}/process")
+def start_processing(
+    job_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Start processing a job with watermark removal"""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found"
+        )
+    
+    if job.status != JobStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Job is not in pending state"
+        )
+    
+    # Start processing
+    job.status = JobStatus.PROCESSING
+    job.processing_started_at = datetime.utcnow()
+    db.commit()
+    
+    # Process using FFmpeg delogo in background thread
+    import threading
+    def process_video_async():
+        from app.database import SessionLocal
+        background_db = SessionLocal()
+        try:
+            bg_job = background_db.query(Job).filter(Job.id == job.id).first()
+            if not bg_job:
+                return
+            try:
+                out_path = process_video_with_delogo(
+                    original_file_path=bg_job.original_file_path,
+                    processed_file_path=bg_job.processed_file_path,
+                    watermark_selections_json=bg_job.watermark_selections,
+                    user_id=bg_job.user_id,
+                )
+                bg_job.status = JobStatus.COMPLETED
+                bg_job.processed_file_path = out_path
+                bg_job.processing_completed_at = datetime.utcnow()
+                background_db.commit()
+                print(f"✅ Job {bg_job.id} processing completed: {out_path}")
+            except Exception as e:
+                bg_job.status = JobStatus.FAILED
+                bg_job.error_message = str(e)
+                background_db.commit()
+                print(f"❌ Job {bg_job.id} processing failed: {e}")
+        finally:
+            background_db.close()
+    
+    thread = threading.Thread(target=process_video_async)
+    thread.start()
+    
+    return {"message": "Processing started", "job_id": job_id}
+
+# Serve video files (public endpoint for downloads)
+@app.get("/api/videos/{job_id}/stream")
+def stream_video(
+    job_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Stream video file for viewing in browser (public endpoint)"""
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found"
+        )
+    
+    # Allow streaming for watermark selection even if not completed
+    if job.status not in [JobStatus.COMPLETED, JobStatus.PROCESSING, JobStatus.PENDING]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Job not available for streaming"
+        )
+    
+    # If processed file is on S3, redirect to presigned URL immediately
+    if getattr(job, "processed_file_path", None) and str(job.processed_file_path).startswith("uploads/"):
+        try:
+            url = s3_service.generate_presigned_url(job.processed_file_path, expiration=3600)
+            if url:
+                print(f"✅ Redirecting to S3 processed file for streaming: {job.processed_file_path}")
+                return RedirectResponse(url=url, status_code=302)
+        except Exception as e:
+            print(f"⚠️ S3 presign failed for processed file, will try local: {e}")
+
+    # Resolve the actual file path we can stream (prefer processed over original)
+    file_path = None
+    
+    # Build candidate keys with processed first
+    candidate_keys = []
+    if getattr(job, "processed_file_path", None):
+        candidate_keys.append(job.processed_file_path)
+    if getattr(job, "original_file_path", None):
+        candidate_keys.append(job.original_file_path)
+    
+    # Try direct absolute paths first (if any were stored as absolute)
+    for key in candidate_keys:
+        if os.path.isabs(key) and os.path.exists(key):
+            file_path = key
+            print(f"✅ Using absolute file path: {file_path}")
+            break
+    
+    # If not absolute, search local_storage by filename match
+    if not file_path:
+        print(f"Searching local_storage for: {candidate_keys}")
+        filenames = {os.path.basename(k) for k in candidate_keys if isinstance(k, str)}
+        for root, dirs, files in os.walk("local_storage"):
+            for name in files:
+                if name in filenames:
+                    candidate = os.path.join(root, name)
+                    if os.path.exists(candidate):
+                        file_path = candidate
+                        print(f"✅ Found file in local storage: {file_path}")
+                        break
+            if file_path:
+                break
+
+    # Fallback: search user's directory (paid/free) for latest file
+    if not file_path:
+        try:
+            storage_root = os.path.join("local_storage", "uploads")
+            bucket_type = "paid" if any("/paid/" in k for k in candidate_keys if isinstance(k, str)) else "free"
+            user_dir = os.path.join(storage_root, bucket_type, str(job.user_id))
+            if os.path.isdir(user_dir):
+                candidates = [
+                    os.path.join(user_dir, f)
+                    for f in os.listdir(user_dir)
+                    if os.path.isfile(os.path.join(user_dir, f)) and f.lower().endswith(".mp4")
+                ]
+                if candidates:
+                    # Pick most recently modified
+                    candidates.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+                    file_path = candidates[0]
+                    print(f"✅ Fallback picked latest user file: {file_path}")
+        except Exception as e:
+            print(f"⚠️ Fallback user-dir search failed: {e}")
+    
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Video file not found"
+        )
+    
+    # Byte-range support for reliable playback
+    file_size = os.path.getsize(file_path)
+    range_header = request.headers.get("range")
+    if range_header:
+        try:
+            # Example: bytes=0- or bytes=1000-2000
+            _, bytes_range = range_header.strip().split("=")
+            start_str, end_str = bytes_range.split("-")
+            start = int(start_str) if start_str else 0
+            end = int(end_str) if end_str else file_size - 1
+            start = max(0, start)
+            end = min(file_size - 1, end)
+            chunk_size = (end - start) + 1
+        except Exception:
+            start, end = 0, file_size - 1
+            chunk_size = file_size
+
+        def iter_file(path: str, offset: int, length: int, block_size: int = 1024 * 1024):
+            with open(path, "rb") as f:
+                f.seek(offset)
+                remaining = length
+                while remaining > 0:
+                    read_size = min(block_size, remaining)
+                    data = f.read(read_size)
+                    if not data:
+                        break
+                    remaining -= len(data)
+                    yield data
+
+        headers = {
+            "Content-Range": f"bytes {start}-{end}/{file_size}",
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(chunk_size),
+            "Content-Type": "video/mp4",
+        }
+        return StreamingResponse(iter_file(file_path, start, chunk_size), status_code=206, headers=headers)
+
+    # No range header: return full file
+    return FileResponse(file_path, media_type="video/mp4")
 
 # ===== STRIPE PAYMENT ENDPOINTS =====
 

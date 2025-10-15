@@ -28,10 +28,10 @@ class User(Base):
     subscription_expires_at = Column(DateTime, nullable=True)
     stripe_customer_id = Column(String, nullable=True)
     
-    # Free trial tracking
-    free_uploads_used = Column(Integer, default=0)
-    free_uploads_limit = Column(Integer, default=1)  # 1 free upload
-    last_free_upload_at = Column(DateTime, nullable=True)
+    # Free trial tracking (commented out to avoid database migration issues)
+    # free_uploads_used = Column(Integer, default=0)
+    # free_uploads_limit = Column(Integer, default=1)  # 1 free upload
+    # last_free_upload_at = Column(DateTime, nullable=True)
     
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -51,6 +51,7 @@ class Job(Base):
     error_message = Column(Text, nullable=True)
     processing_started_at = Column(DateTime, nullable=True)
     processing_completed_at = Column(DateTime, nullable=True)
+    watermark_selections = Column(Text, nullable=True)  # JSON string of watermark selections
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
     

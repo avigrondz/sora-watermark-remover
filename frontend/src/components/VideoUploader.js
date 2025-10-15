@@ -50,8 +50,7 @@ const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
+            return prev; // Keep at 90% until upload completes
           }
           return prev + Math.random() * 10;
         });
@@ -64,9 +63,12 @@ const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
       
       message.success('Video uploaded successfully!');
       
-      if (onUploadSuccess) {
-        onUploadSuccess(response.data);
-      }
+      // Small delay to ensure progress shows 100%
+      setTimeout(() => {
+        if (onUploadSuccess) {
+          onUploadSuccess(response.data);
+        }
+      }, 100);
       
     } catch (error) {
       message.error(error.response?.data?.detail || 'Upload failed');

@@ -45,11 +45,15 @@ export const videoAPI = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000, // 60 second timeout
     });
   },
   getJobStatus: (jobId) => api.get(`/api/jobs/${jobId}/status`),
   getUserJobs: () => api.get('/api/jobs'),
   downloadVideo: (jobId) => api.get(`/api/jobs/${jobId}/download`),
+  addWatermarkSelections: (jobId, watermarkData) => api.post(`/api/jobs/${jobId}/watermarks`, watermarkData),
+  getWatermarkSelections: (jobId) => api.get(`/api/jobs/${jobId}/watermarks`),
+  startProcessing: (jobId) => api.post(`/api/jobs/${jobId}/process`),
 };
 
 export const subscriptionAPI = {

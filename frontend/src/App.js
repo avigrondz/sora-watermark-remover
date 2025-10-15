@@ -9,6 +9,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import PricingPage from './pages/PricingPage';
+import ProcessingPage from './pages/ProcessingPage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 const { Content } = Layout;
@@ -43,6 +44,14 @@ const AppContent = () => {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/process/:jobId" 
+            element={
+              <ProtectedRoute>
+                <ProcessingPage />
               </ProtectedRoute>
             } 
           />
