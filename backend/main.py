@@ -117,9 +117,17 @@ def public_upload(
             db.add(public_user)
             db.commit()
             db.refresh(public_user)
-        except Exception:
+            print(f"✅ Created public user: {public_user.id}")
+        except Exception as e:
+            print(f"❌ Failed to create public user: {e}")
             db.rollback()
+            # Try to get existing user after rollback
             public_user = db.query(User).filter(User.email == "public@sora.local").first()
+            if not public_user:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create public user for anonymous uploads"
+                )
     # Validate file type
     if not file.content_type.startswith('video/'):
         raise HTTPException(

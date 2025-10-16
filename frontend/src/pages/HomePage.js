@@ -67,6 +67,8 @@ const isLocalhost = window.location.hostname === 'localhost' || window.location.
 const BACKEND_URL = isLocalhost ? 'http://localhost:8000' : 'https://api.sorawatermarks.com';
 const FRONTEND_URL = isLocalhost ? 'http://localhost:3000' : 'https://app.sorawatermarks.com';
 
+console.log('Embed detected environment:', { isLocalhost, BACKEND_URL, FRONTEND_URL });
+
 document.getElementById('video-upload').addEventListener('change', function(e) {
   const file = e.target.files[0];
   if (!file) return;
