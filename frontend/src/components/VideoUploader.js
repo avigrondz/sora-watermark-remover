@@ -1,8 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { Upload, message, Progress, Button, Typography } from 'antd';
 import { VideoCameraOutlined, UploadOutlined } from '@ant-design/icons';
-import { useDropzone } from 'react-dropzone';
-import { videoAPI } from '../services/api';
+import { videoAPI, publicVideoAPI } from '../services/api';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
@@ -10,21 +9,9 @@ const { Text } = Typography;
 const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [redirecting, setRedirecting] = useState(false);
 
-  const onDrop = useCallback((acceptedFiles) => {
-    if (acceptedFiles.length > 0) {
-      handleUpload(acceptedFiles[0]);
-    }
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'video/*': ['.mp4', '.mov', '.avi', '.mkv', '.webm']
-    },
-    multiple: false,
-    disabled: uploading
-  });
+  // No react-dropzone; rely solely on AntD Upload.Dragger to avoid double file dialogs
 
   const handleUpload = async (file) => {
     if (!file) return;
@@ -56,19 +43,26 @@ const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
         });
       }, 200);
 
-      const response = await videoAPI.upload(file);
+      const isLoggedIn = !!localStorage.getItem('token');
+      const response = isLoggedIn
+        ? await videoAPI.upload(file)
+        : await publicVideoAPI.upload(file);
       
       clearInterval(progressInterval);
       setProgress(100);
+      setRedirecting(true);
       
-      message.success('Video uploaded successfully!');
+      message.success('Video uploaded successfully! Redirecting...');
       
-      // Small delay to ensure progress shows 100%
-      setTimeout(() => {
-        if (onUploadSuccess) {
-          onUploadSuccess(response.data);
+      // Redirect immediately - no delay needed
+      if (onUploadSuccess) {
+        onUploadSuccess(response.data);
+      } else {
+        // If no handler provided, navigate to processing when anonymous
+        if (!localStorage.getItem('token') && response.data?.job_id) {
+          window.location.href = `/process/${response.data.job_id}`;
         }
-      }, 100);
+      }
       
     } catch (error) {
       message.error(error.response?.data?.detail || 'Upload failed');
@@ -86,8 +80,11 @@ const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
     name: 'file',
     multiple: false,
     showUploadList: false,
+    disabled: uploading || redirecting,
     beforeUpload: (file) => {
-      handleUpload(file);
+      if (!uploading && !redirecting) {
+        handleUpload(file);
+      }
       return false; // Prevent default upload
     },
     accept: 'video/*'
@@ -96,18 +93,15 @@ const VideoUploader = ({ onUploadSuccess, onUploadError }) => {
   return (
     <div>
       <Dragger
-        {...getRootProps()}
         {...uploadProps}
-        className={`upload-area ${isDragActive ? 'dragover' : ''}`}
-        disabled={uploading}
+        className="upload-area"
+        disabled={uploading || redirecting}
+        onClick={(e) => { if (uploading || redirecting) { e.preventDefault(); e.stopPropagation(); } }}
       >
-        <input {...getInputProps()} />
         <p className="ant-upload-drag-icon">
           <VideoCameraOutlined className="upload-icon" />
         </p>
-        <p className="ant-upload-text">
-          {isDragActive ? 'Drop your video here' : 'Click or drag video to upload'}
-        </p>
+        <p className="ant-upload-text">Click or drag video to upload</p>
         
         <button className="upload-button" type="button">
           Upload Video

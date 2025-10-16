@@ -49,11 +49,7 @@ const AppContent = () => {
           />
           <Route 
             path="/process/:jobId" 
-            element={
-              <ProtectedRoute>
-                <ProcessingPage />
-              </ProtectedRoute>
-            } 
+            element={<ProcessingPage />} 
           />
         </Routes>
       </Content>

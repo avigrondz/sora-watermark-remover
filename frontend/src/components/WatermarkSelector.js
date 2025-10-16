@@ -169,7 +169,7 @@ const WatermarkSelector = ({ videoUrl, onWatermarksSelected, onNext }) => {
   }, [videoUrl]);
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
       <Card>
         <Title level={3}>Select Watermarks to Remove</Title>
         <Text type="secondary">
@@ -193,16 +193,18 @@ const WatermarkSelector = ({ videoUrl, onWatermarksSelected, onNext }) => {
               style={{ 
                 width: '100%', 
                 height: 'auto',
-                maxWidth: '600px',
+                maxWidth: '900px',
                 display: 'block'
               }}
               controls
+              crossOrigin="anonymous"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onError={(e) => {
                 console.error('Video load error:', e);
                 console.error('Video URL:', videoUrl);
+                console.error('Error details:', e.target.error);
               }}
               onLoadStart={() => console.log('Video loading started:', videoUrl)}
               onCanPlay={() => console.log('Video can play:', videoUrl)}

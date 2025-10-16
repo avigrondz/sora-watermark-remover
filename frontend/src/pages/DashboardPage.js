@@ -90,6 +90,21 @@ const DashboardPage = () => {
     }
   };
 
+  const handleDelete = async (jobId) => {
+    try {
+      await videoAPI.deleteJob(jobId);
+      message.success('Video deleted successfully');
+      fetchJobs(); // Refresh the jobs list
+    } catch (error) {
+      message.error('Failed to delete video');
+    }
+  };
+
+  const handleView = (jobId) => {
+    const streamUrl = videoAPI.getVideoStream(jobId);
+    window.open(streamUrl, '_blank');
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case 'pending':
@@ -167,13 +182,13 @@ const DashboardPage = () => {
   };
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="dashboard-container" style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ marginBottom: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <Title level={2} style={{ margin: 0 }}>Dashboard</Title>
+          <Title level={2} className="dashboard-title" style={{ margin: 0 }}>Dashboard</Title>
           {getSubscriptionTag()}
         </div>
-        <Text type="secondary">
+        <Text className="dashboard-text" type="secondary">
           Welcome back, {user?.email}! Upload videos to remove watermarks.
         </Text>
         
@@ -233,6 +248,8 @@ const DashboardPage = () => {
                 <JobCard
                   job={job}
                   onDownload={handleDownload}
+                  onDelete={handleDelete}
+                  onView={handleView}
                   statusIcon={getStatusIcon(job.status)}
                   statusText={getStatusText(job.status)}
                 />

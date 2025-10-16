@@ -66,15 +66,19 @@ const Navbar = () => {
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'space-between',
-      background: 'white',
+      background: isDarkMode ? '#0E2034' : 'white',
       boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-      zIndex: 1000
+      zIndex: 1000,
+      height: 112,
+      lineHeight: '112px'
     }}>
       <div style={{ display: 'flex', alignItems: 'center' }}>
-        <Link to="/" style={{ textDecoration: 'none' }}>
-          <Text strong style={{ fontSize: '1.5rem', color: '#1890ff' }}>
-            Sora Watermark Remover
-          </Text>
+        <Link to="/" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+          <img 
+            src={isDarkMode ? '/SWR-logo-v02.jpg' : '/SWR-logo-v04.jpg'} 
+            alt="Sora Watermark Remover" 
+            style={{ height: '104px', display: 'block' }}
+          />
         </Link>
       </div>
 

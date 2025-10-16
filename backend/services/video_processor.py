@@ -57,10 +57,9 @@ def resolve_input_path(original_file_path: Optional[str], processed_file_path: O
 
 
 def build_delogo_filter(watermarks: List[Dict]) -> Optional[str]:
-    """Build an ffmpeg filter chain applying multiple delogo filters.
+    """Build an improved ffmpeg filter chain for better watermark removal.
 
-    Each watermark dict should include x, y, width, height. Optionally timestamp.
-    MVP: apply each region across entire video (no enable window)."""
+    Uses enhanced delogo parameters and post-processing for better quality."""
     steps = []
     for wm in watermarks:
         try:
@@ -72,13 +71,19 @@ def build_delogo_filter(watermarks: List[Dict]) -> Optional[str]:
             continue
         if w <= 0 or h <= 0:
             continue
+        # Basic delogo filter for maximum compatibility
         steps.append(f"delogo=x={x}:y={y}:w={w}:h={h}:show=0")
-
+    
     if not steps:
         return None
-
-    # Chain filters sequentially: delogo,delogo,...
-    return ",".join(steps)
+    
+    # Add post-processing for better quality
+    filter_chain = ",".join(steps)
+    
+    # Add unsharp mask for sharpness and temporal smoothing
+    filter_chain += ",unsharp=5:5:0.8:3:3:0.4"
+    
+    return filter_chain
 
 
 def process_video_with_delogo(
@@ -130,11 +135,11 @@ def process_video_with_delogo(
     if filter_chain:
         cmd += ["-vf", filter_chain]
 
-    # Re-encode video with reasonable defaults; copy audio
+    # Re-encode video with higher quality settings for better results
     cmd += [
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", "23",
+        "-preset", "medium",  # Better quality than veryfast
+        "-crf", "18",         # Higher quality than 23
         "-c:a", "aac",
         "-movflags", "+faststart",
         out_path,

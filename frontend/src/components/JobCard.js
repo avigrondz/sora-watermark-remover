@@ -1,17 +1,26 @@
 import React from 'react';
-import { Card, Button, Space, Typography, Tag } from 'antd';
-import { DownloadOutlined, EyeOutlined } from '@ant-design/icons';
+import { Card, Button, Space, Typography, Tag, Popconfirm } from 'antd';
+import { DownloadOutlined, EyeOutlined, DeleteOutlined, PlayCircleOutlined } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 
-const JobCard = ({ job, onDownload, statusIcon, statusText }) => {
+const JobCard = ({ job, onDownload, onDelete, onView, statusIcon, statusText }) => {
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    if (!dateString) return '';
+    // Many backends return UTC without timezone (e.g., 2025-10-16T15:38:00)
+    // If there's no timezone info, interpret as UTC and convert to local
+    let normalized = dateString;
+    const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(dateString);
+    if (!hasTimezone && /T/.test(dateString)) {
+      normalized = `${dateString}Z`;
+    }
+    const dateObj = new Date(normalized);
+    return dateObj.toLocaleString(undefined, {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
@@ -47,6 +56,15 @@ const JobCard = ({ job, onDownload, statusIcon, statusText }) => {
         </Tag>
       }
       actions={[
+        // View button (for all statuses)
+        <Button
+          icon={<PlayCircleOutlined />}
+          onClick={() => onView(job.id)}
+          size="small"
+        >
+          View
+        </Button>,
+        // Download button (only for completed)
         job.status === 'completed' && (
           <Button
             type="primary"
@@ -57,15 +75,23 @@ const JobCard = ({ job, onDownload, statusIcon, statusText }) => {
             Download
           </Button>
         ),
-        job.status === 'processing' && (
+        // Delete button (for all statuses)
+        <Popconfirm
+          title="Delete this video?"
+          description="This action cannot be undone."
+          onConfirm={() => onDelete(job.id)}
+          okText="Delete"
+          cancelText="Cancel"
+          okType="danger"
+        >
           <Button
-            icon={<EyeOutlined />}
-            onClick={() => {/* TODO: Show progress modal */}}
+            danger
+            icon={<DeleteOutlined />}
             size="small"
           >
-            View Progress
+            Delete
           </Button>
-        )
+        </Popconfirm>
       ].filter(Boolean)}
     >
       <Space direction="vertical" style={{ width: '100%' }}>

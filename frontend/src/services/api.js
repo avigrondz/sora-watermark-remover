@@ -51,9 +51,26 @@ export const videoAPI = {
   getJobStatus: (jobId) => api.get(`/api/jobs/${jobId}/status`),
   getUserJobs: () => api.get('/api/jobs'),
   downloadVideo: (jobId) => api.get(`/api/jobs/${jobId}/download`),
+  deleteJob: (jobId) => api.delete(`/api/jobs/${jobId}`),
+  getVideoStream: (jobId) => `${API_BASE_URL}/api/videos/${jobId}/stream`,
   addWatermarkSelections: (jobId, watermarkData) => api.post(`/api/jobs/${jobId}/watermarks`, watermarkData),
   getWatermarkSelections: (jobId) => api.get(`/api/jobs/${jobId}/watermarks`),
   startProcessing: (jobId) => api.post(`/api/jobs/${jobId}/process`),
+};
+
+export const publicVideoAPI = {
+  upload: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/api/public/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+  },
+  getJobStatus: (jobId) => api.get(`/api/public/jobs/${jobId}/status`),
+  addWatermarkSelections: (jobId, data) => api.post(`/api/public/jobs/${jobId}/watermarks`, data),
+  startProcessing: (jobId) => api.post(`/api/public/jobs/${jobId}/process`),
+  getPreviewStreamUrl: (jobId) => `${API_BASE_URL}/api/videos/${jobId}/stream?preview=1`,
 };
 
 export const subscriptionAPI = {

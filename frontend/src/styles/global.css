@@ -37,8 +37,8 @@ code {
 }
 
 [data-theme="dark"] .ant-layout-header {
-  background: #1f1f1f !important;
-  border-bottom: 1px solid #333;
+  background: #0E2034 !important;
+  border-bottom: 1px solid #0b1a29;
 }
 
 /* Menu theme support */
@@ -132,14 +132,14 @@ code {
   color: white;
 }
 
-/* Typography theme support */
+/* Typography theme support - Force proper contrast */
 .ant-typography h1,
 .ant-typography h2,
 .ant-typography h3,
 .ant-typography h4,
 .ant-typography h5,
 .ant-typography h6 {
-  color: inherit;
+  color: #333 !important;
 }
 
 [data-theme="dark"] .ant-typography h1,
@@ -148,15 +148,156 @@ code {
 [data-theme="dark"] .ant-typography h4,
 [data-theme="dark"] .ant-typography h5,
 [data-theme="dark"] .ant-typography h6 {
-  color: white;
+  color: white !important;
 }
 
 .ant-typography p {
-  color: inherit;
+  color: #333 !important;
 }
 
 [data-theme="dark"] .ant-typography p {
-  color: #e0e0e0;
+  color: #e0e0e0 !important;
+}
+
+/* Card theme support */
+.ant-card {
+  background: white !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-card {
+  background: #1f1f1f !important;
+  color: white !important;
+}
+
+.ant-card-head {
+  background: #fafafa !important;
+  color: #333 !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+[data-theme="dark"] .ant-card-head {
+  background: #2a2a2a !important;
+  color: white !important;
+  border-bottom: 1px solid #333 !important;
+}
+
+.ant-card-head-title {
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-card-head-title {
+  color: white !important;
+}
+
+.ant-card-body {
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-card-body {
+  color: white !important;
+}
+
+/* Button theme support */
+.ant-btn {
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-btn {
+  color: white !important;
+}
+
+.ant-btn-primary {
+  background: #1890ff !important;
+  border-color: #1890ff !important;
+  color: white !important;
+}
+
+.ant-btn-default {
+  background: white !important;
+  border-color: #d9d9d9 !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-btn-default {
+  background: #2a2a2a !important;
+  border-color: #404040 !important;
+  color: white !important;
+}
+
+/* Text theme support */
+.ant-typography {
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-typography {
+  color: white !important;
+}
+
+/* Alert theme support */
+.ant-alert {
+  background: #f6ffed !important;
+  border: 1px solid #b7eb8f !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-alert {
+  background: #162312 !important;
+  border: 1px solid #389e0d !important;
+  color: white !important;
+}
+
+.ant-alert-message {
+  color: #333 !important;
+}
+
+[data-theme="dark"] .ant-alert-message {
+  color: white !important;
+}
+
+.ant-alert-description {
+  color: #666 !important;
+}
+
+[data-theme="dark"] .ant-alert-description {
+  color: #e0e0e0 !important;
+}
+
+/* Tag theme support */
+[data-theme] .ant-tag {
+  background: #f5f5f5 !important;
+  color: #333 !important;
+  border-color: #d9d9d9 !important;
+}
+
+/* Ensure preset status tags have readable contrast in light mode */
+.ant-tag-success { background: #f6ffed !important; color: #389e0d !important; border-color: #b7eb8f !important; }
+.ant-tag-processing { background: #e6f4ff !important; color: #1677ff !important; border-color: #91caff !important; }
+.ant-tag-warning { background: #fff7e6 !important; color: #fa8c16 !important; border-color: #ffd591 !important; }
+.ant-tag-error { background: #fff1f0 !important; color: #ff4d4f !important; border-color: #ffa39e !important; }
+
+/* Dark mode tag contrast */
+[data-theme="dark"] .ant-tag { background: #2a2a2a !important; color: #e8e8e8 !important; border-color: #404040 !important; }
+[data-theme="dark"] .ant-tag-success { background: #162312 !important; color: #95de64 !important; border-color: #274916 !important; }
+[data-theme="dark"] .ant-tag-processing { background: #111a2c !important; color: #69b1ff !important; border-color: #15325b !important; }
+[data-theme="dark"] .ant-tag-warning { background: #2b2111 !important; color: #ffd666 !important; border-color: #593815 !important; }
+[data-theme="dark"] .ant-tag-error { background: #2a1215 !important; color: #ff7875 !important; border-color: #5b1a1d !important; }
+
+/* Empty state theme support */
+.ant-empty {
+  color: #666 !important;
+}
+
+[data-theme="dark"] .ant-empty {
+  color: #a0a0a0 !important;
+}
+
+.ant-empty-description {
+  color: #666 !important;
+}
+
+[data-theme="dark"] .ant-empty-description {
+  color: #a0a0a0 !important;
 }
 
 /* CTA section theme support */
@@ -253,7 +394,7 @@ code {
 }
 
 [data-theme="dark"] .hero-section {
-  background: #0a0a0a;
+  background: #0E2034;
 }
 
 .hero-content {
@@ -419,22 +560,47 @@ code {
 .upload-text {
   font-size: 1.2rem;
   margin-bottom: 1rem;
-  color: #333;
+  color: #333 !important;
   font-weight: 500;
 }
 
 [data-theme="dark"] .upload-text {
-  color: white;
+  color: white !important;
 }
 
 .upload-hint {
   font-size: 1rem;
-  color: #666;
+  color: #666 !important;
   margin-bottom: 2rem;
 }
 
 [data-theme="dark"] .upload-hint {
-  color: #a0a0a0;
+  color: #a0a0a0 !important;
+}
+
+/* Upload specs styling - keep white bubbles */
+.spec-item {
+  background: #f0f0f0 !important;
+  color: #333 !important;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+[data-theme="dark"] .spec-item {
+  background: #f0f0f0 !important;
+  color: #333 !important;
+}
+
+.upload-terms {
+  font-size: 0.85rem;
+  color: #666 !important;
+  margin-top: 1rem;
+}
+
+[data-theme="dark"] .upload-terms {
+  color: #a0a0a0 !important;
 }
 
 .upload-button {
@@ -556,11 +722,63 @@ code {
   margin-bottom: 16px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: white !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .job-card {
+  background: #1f1f1f !important;
+  color: white !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .job-card .ant-card-head {
-  background: #fafafa;
-  border-bottom: 1px solid #f0f0f0;
+  background: #fafafa !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .job-card .ant-card-head {
+  background: #2a2a2a !important;
+  border-bottom: 1px solid #333 !important;
+  color: white !important;
+}
+
+.job-card .ant-card-body {
+  background: white !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .job-card .ant-card-body {
+  background: #1f1f1f !important;
+  color: white !important;
+}
+
+/* Dashboard specific styling */
+.dashboard-container {
+  background: #f5f5f5 !important;
+  color: #333 !important;
+}
+
+[data-theme="dark"] .dashboard-container {
+  background: #0a0a0a !important;
+  color: white !important;
+}
+
+.dashboard-title {
+  color: #333 !important;
+}
+
+[data-theme="dark"] .dashboard-title {
+  color: white !important;
+}
+
+.dashboard-text {
+  color: #666 !important;
+}
+
+[data-theme="dark"] .dashboard-text {
+  color: #e0e0e0 !important;
 }
 
 .status-pending {

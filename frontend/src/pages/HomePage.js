@@ -46,14 +46,14 @@ const HomePage = () => {
   ">Upload Video</button>
   
   <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
-    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 2K</span>
-    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 500MB</span>
+    <span style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 2K</span>
+    <span style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 500MB</span>
   </div>
   
   <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
     <span style="color: #a0a0a0; font-size: 0.9rem;">Supported formats:</span>
-    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">mp4</span>
-    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">m4v</span>
+    <span style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">mp4</span>
+    <span style="background: #f0f0f0; color: #333; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">m4v</span>
   </div>
   
   <p style="font-size: 0.85rem; color: #888; margin-top: 1rem;">
@@ -62,12 +62,55 @@ const HomePage = () => {
 </div>
 
 <script>
+// Auto-detect environment URLs
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const BACKEND_URL = isLocalhost ? 'http://localhost:8000' : 'https://api.sorawatermarks.com';
+const FRONTEND_URL = isLocalhost ? 'http://localhost:3000' : 'https://app.sorawatermarks.com';
+
 document.getElementById('video-upload').addEventListener('change', function(e) {
   const file = e.target.files[0];
-  if (file) {
-    // Redirect to main site for processing
-    window.open('https://your-domain.com/upload?file=' + encodeURIComponent(file.name), '_blank');
+  if (!file) return;
+  
+  // Validate file type and size
+  if (!file.type.startsWith('video/')) {
+    alert('Please select a video file');
+    return;
   }
+  
+  const maxSize = 500 * 1024 * 1024; // 500MB
+  if (file.size > maxSize) {
+    alert('File size must be less than 500MB');
+    return;
+  }
+  
+  // Show progress
+  const button = document.querySelector('button');
+  const originalText = button.textContent;
+  button.textContent = 'Uploading...';
+  button.disabled = true;
+  
+  // Upload file
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  fetch(BACKEND_URL + '/api/public/upload', {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.job_id) {
+      // Navigate to processing page in same tab
+      window.location.href = FRONTEND_URL + '/process/' + data.job_id;
+    } else {
+      throw new Error(data.message || 'Upload failed');
+    }
+  })
+  .catch(error => {
+    alert('Upload failed: ' + error.message);
+    button.textContent = originalText;
+    button.disabled = false;
+  });
 });
 </script>`;
 
@@ -111,11 +154,10 @@ document.getElementById('video-upload').addEventListener('change', function(e) {
             <VideoUploader 
               onUploadSuccess={(data) => {
                 if (isAuthenticated()) {
-                  // Redirect to dashboard to see processing status
                   window.location.href = '/dashboard';
-                } else {
-                  // Show success message or redirect to login
-                  console.log('Upload successful:', data);
+                } else if (data?.job_id) {
+                  // Anonymous flow: go straight to processing page for preview + selection
+                  window.location.href = `/process/${data.job_id}`;
                 }
               }}
               onUploadError={(error) => {

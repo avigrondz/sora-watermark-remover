@@ -105,9 +105,9 @@ function uploadFile(file) {
     return response.json();
   })
   .then(data => {
-    // Redirect to frontend with job ID
+    // Navigate in the same tab so user stays on the page (better for WordPress embeds)
     setTimeout(() => {
-      window.open(`${FRONTEND_URL}/process/${data.job_id}`, '_blank');
+      window.location.href = `${FRONTEND_URL}/process/${data.job_id}`;
     }, 500);
   })
   .catch(error => {

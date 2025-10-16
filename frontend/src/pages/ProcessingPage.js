@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Typography, Steps, Button, message, Progress, Space } from 'antd';
+import { Card, Typography, Steps, Button, message, Progress, Space, Alert } from 'antd';
 import { PlayCircleOutlined, CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import WatermarkSelector from '../components/WatermarkSelector';
-import { videoAPI } from '../services/api';
+import { videoAPI, publicVideoAPI } from '../services/api';
 
 const { Title, Text } = Typography;
 const { Step } = Steps;
@@ -23,11 +23,13 @@ const ProcessingPage = () => {
 
   const fetchJobDetails = async () => {
     try {
-      const response = await videoAPI.getJobStatus(jobId);
+      const isLoggedIn = !!localStorage.getItem('token');
+      const response = isLoggedIn
+        ? await videoAPI.getJobStatus(jobId)
+        : await publicVideoAPI.getJobStatus(jobId);
       setJob(response.data);
-      
-      // If job is completed, redirect to dashboard
-      if (response.data.status === 'completed') {
+      // Only redirect auto for logged-in users
+      if (isLoggedIn && response.data.status === 'completed') {
         navigate('/dashboard');
       }
     } catch (error) {
@@ -41,7 +43,12 @@ const ProcessingPage = () => {
       setWatermarks(selectedWatermarks);
       
       // Save watermark selections to backend
-      await videoAPI.addWatermarkSelections(jobId, { watermarks: selectedWatermarks });
+      const isLoggedIn = !!localStorage.getItem('token');
+      if (isLoggedIn) {
+        await videoAPI.addWatermarkSelections(jobId, { watermarks: selectedWatermarks });
+      } else {
+        await publicVideoAPI.addWatermarkSelections(jobId, { watermarks: selectedWatermarks });
+      }
       message.success('Watermark selections saved');
       
       setCurrentStep(1);
@@ -57,7 +64,12 @@ const ProcessingPage = () => {
       setCurrentStep(2);
       
       // Start processing
-      await videoAPI.startProcessing(jobId);
+      const isLoggedIn = !!localStorage.getItem('token');
+      if (isLoggedIn) {
+        await videoAPI.startProcessing(jobId);
+      } else {
+        await publicVideoAPI.startProcessing(jobId);
+      }
       message.success('Processing started');
       
       // Poll for status updates
@@ -72,7 +84,10 @@ const ProcessingPage = () => {
   const pollJobStatus = () => {
     const interval = setInterval(async () => {
       try {
-        const response = await videoAPI.getJobStatus(jobId);
+        const isLoggedIn = !!localStorage.getItem('token');
+        const response = isLoggedIn
+          ? await videoAPI.getJobStatus(jobId)
+          : await publicVideoAPI.getJobStatus(jobId);
         const jobStatus = response.data.status;
         
         if (jobStatus === 'completed') {
@@ -80,7 +95,12 @@ const ProcessingPage = () => {
           setIsProcessing(false);
           setProcessingProgress(100);
           message.success('Processing completed!');
-          navigate('/dashboard');
+          if (isLoggedIn) {
+            navigate('/dashboard');
+          } else {
+            // Stay on page for guests; show CTA to login for download
+            setCurrentStep(2);
+          }
         } else if (jobStatus === 'failed') {
           clearInterval(interval);
           setIsProcessing(false);
@@ -96,13 +116,18 @@ const ProcessingPage = () => {
   };
 
   const getVideoUrl = () => {
-    console.log('Job data:', job);
-    if (job) {
-      const videoUrl = `http://localhost:8000/api/videos/${jobId}/stream`;
-      console.log('Video URL:', videoUrl);
-      return videoUrl;
+    if (!job) return null;
+    const isLoggedIn = !!localStorage.getItem('token');
+    
+    // Show original (unblurred) for watermark selection
+    // Show blurred preview ONLY after processing is complete and user is not logged in
+    const showBlurredPreview = !isLoggedIn && job.status === 'completed';
+    
+    if (showBlurredPreview) {
+      return publicVideoAPI.getPreviewStreamUrl(jobId);
+    } else {
+      return `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/videos/${jobId}/stream`;
     }
-    return null;
   };
 
   const steps = [
@@ -166,6 +191,16 @@ const ProcessingPage = () => {
                 >
                   Start Processing
                 </Button>
+                {!localStorage.getItem('token') && (
+                  <Button
+                    onClick={() => {
+                      // Send user to login, then to dashboard after login
+                      window.location.href = `/login?next=/dashboard`;
+                    }}
+                  >
+                    Login to Download
+                  </Button>
+                )}
               </Space>
             </div>
           </Card>
@@ -189,6 +224,27 @@ const ProcessingPage = () => {
                 {isProcessing ? 'Processing...' : 'Processing completed!'}
               </Text>
             </div>
+
+            {!localStorage.getItem('token') && !isProcessing && (
+              <div style={{ marginTop: '24px' }}>
+                <Alert
+                  message="🎉 Processing Complete! Login to Download"
+                  description="You can see a preview above (blurred for security). Sign up or log in to download your watermark-free video in full quality!"
+                  type="success"
+                  showIcon
+                />
+                <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                  <Space size="large">
+                    <Button type="primary" size="large" onClick={() => (window.location.href = '/register?next=/dashboard')}>
+                      Sign Up Free
+                    </Button>
+                    <Button size="large" onClick={() => (window.location.href = '/login?next=/dashboard')}>
+                      Login
+                    </Button>
+                  </Space>
+                </div>
+              </div>
+            )}
           </Card>
         )}
       </div>

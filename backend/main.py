@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse, FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 import os
+import subprocess
 import uuid
 import tempfile
 import stripe
@@ -104,6 +105,21 @@ def public_upload(
     db: Session = Depends(get_db)
 ):
     """Public upload endpoint for embed widget - no authentication required"""
+    # Ensure a placeholder public user exists to satisfy NOT NULL jobs.user_id
+    public_user = db.query(User).filter(User.email == "public@sora.local").first()
+    if not public_user:
+        try:
+            public_user = User(
+                email="public@sora.local",
+                hashed_password=get_password_hash(str(uuid.uuid4())),
+                subscription_tier=SubscriptionTier.FREE,
+            )
+            db.add(public_user)
+            db.commit()
+            db.refresh(public_user)
+        except Exception:
+            db.rollback()
+            public_user = db.query(User).filter(User.email == "public@sora.local").first()
     # Validate file type
     if not file.content_type.startswith('video/'):
         raise HTTPException(
@@ -136,12 +152,19 @@ def public_upload(
     # Upload to local storage (public uploads go to free tier)
     s3_key = f"uploads/free/public/{unique_filename}"
     
-    # Try S3 first, fallback to local storage
+    # Use S3 only if explicitly enabled (disabled by default for localhost)
+    use_s3 = os.getenv("USE_S3", "false").lower() == "true"
     upload_success = False
-    try:
-        upload_success = s3_service.upload_file(temp_path, s3_key)
-    except Exception as e:
-        print(f"S3 upload failed, using local storage: {e}")
+    
+    if use_s3:
+        try:
+            upload_success = s3_service.upload_file(temp_path, s3_key)
+            print(f"✅ File uploaded to S3: {s3_key}")
+        except Exception as e:
+            print(f"⚠️ S3 upload failed, using local storage: {e}")
+            upload_success = local_storage.upload_file(temp_path, s3_key)
+    else:
+        print(f"📁 Storing file locally (S3 disabled): {s3_key}")
         upload_success = local_storage.upload_file(temp_path, s3_key)
     
     if not upload_success:
@@ -151,9 +174,9 @@ def public_upload(
             detail="Failed to upload file"
         )
     
-    # Create job record (no user_id for public uploads)
+    # Create job record (attach to public user)
     job = Job(
-        user_id=None,  # Anonymous/public upload
+        user_id=public_user.id,
         original_filename=file.filename,
         original_file_path=s3_key,
         status=JobStatus.PENDING
@@ -178,6 +201,74 @@ def public_upload(
         message="Video uploaded successfully. Proceed to select watermarks.",
         redirect_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/process/{job.id}"
     )
+
+# Public: get job status (no auth)
+@app.get("/api/public/jobs/{job_id}/status")
+def public_get_job_status(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {
+        "job_id": job.id,
+        "status": job.status,
+        "has_processed": bool(job.processed_file_path),
+    }
+
+# Public: save watermark selections
+@app.post("/api/public/jobs/{job_id}/watermarks")
+def public_add_watermarks(job_id: int, watermark_data: dict, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status not in [JobStatus.PENDING, JobStatus.PROCESSING]:
+        raise HTTPException(status_code=400, detail="Job not in editable state")
+    job.watermark_selections = json.dumps(watermark_data)
+    db.commit()
+    return {"message": "Watermark selection saved", "job_id": job_id}
+
+# Public: start processing
+@app.post("/api/public/jobs/{job_id}/process")
+def public_start_processing(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.status != JobStatus.PENDING:
+        raise HTTPException(status_code=400, detail="Job is not in pending state")
+    job.status = JobStatus.PROCESSING
+    job.processing_started_at = datetime.utcnow()
+    db.commit()
+
+    import threading
+    def process_video_async():
+        from app.database import SessionLocal
+        background_db = SessionLocal()
+        try:
+            bg_job = background_db.query(Job).filter(Job.id == job.id).first()
+            if not bg_job:
+                return
+            try:
+                out_path = process_video_with_delogo(
+                    original_file_path=bg_job.original_file_path,
+                    processed_file_path=bg_job.processed_file_path,
+                    watermark_selections_json=bg_job.watermark_selections,
+                    user_id=bg_job.user_id or 0,
+                )
+                bg_job.status = JobStatus.COMPLETED
+                bg_job.processed_file_path = out_path
+                bg_job.processing_completed_at = datetime.utcnow()
+                background_db.commit()
+                print(f"✅ Public job {bg_job.id} processing completed: {out_path}")
+            except Exception as e:
+                bg_job.status = JobStatus.FAILED
+                bg_job.error_message = str(e)
+                background_db.commit()
+                print(f"❌ Public job {bg_job.id} processing failed: {e}")
+        finally:
+            background_db.close()
+
+    thread = threading.Thread(target=process_video_async)
+    thread.start()
+    return {"message": "Processing started", "job_id": job_id}
 
 # Upload video for processing (authenticated users)
 @app.post("/api/videos/upload", response_model=VideoUploadResponse)
@@ -367,6 +458,54 @@ def download_video(
         expires_at=datetime.utcnow() + timedelta(hours=1)
     )
 
+# Delete job
+@app.delete("/api/jobs/{job_id}")
+def delete_job(
+    job_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Delete a job and its associated files"""
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found"
+        )
+    
+    try:
+        # Delete files from storage
+        files_to_delete = []
+        if job.original_file_path:
+            files_to_delete.append(job.original_file_path)
+        if job.processed_file_path:
+            files_to_delete.append(job.processed_file_path)
+        
+        for file_path in files_to_delete:
+            try:
+                if file_path.startswith("uploads/"):
+                    # Try S3 first
+                    s3_service.delete_file(file_path)
+                else:
+                    # Local file
+                    if os.path.exists(file_path):
+                        os.unlink(file_path)
+            except Exception as e:
+                print(f"Warning: Could not delete file {file_path}: {e}")
+        
+        # Delete job from database
+        db.delete(job)
+        db.commit()
+        
+        return {"message": "Job deleted successfully"}
+        
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete job: {str(e)}"
+        )
+
 # Health check
 @app.get("/api/health")
 def health_check():
@@ -485,7 +624,11 @@ def stream_video(
     request: Request,
     db: Session = Depends(get_db)
 ):
-    """Stream video file for viewing in browser (public endpoint)"""
+    """Stream video file for viewing in browser (public endpoint)
+
+    Query params:
+    - preview=1 -> serve a blurred, lower-res preview suitable for anonymous users
+    """
     job = db.query(Job).filter(Job.id == job_id).first()
     if not job:
         raise HTTPException(
@@ -500,25 +643,32 @@ def stream_video(
             detail="Job not available for streaming"
         )
     
-    # If processed file is on S3, redirect to presigned URL immediately
-    if getattr(job, "processed_file_path", None) and str(job.processed_file_path).startswith("uploads/"):
-        try:
-            url = s3_service.generate_presigned_url(job.processed_file_path, expiration=3600)
-            if url:
-                print(f"✅ Redirecting to S3 processed file for streaming: {job.processed_file_path}")
-                return RedirectResponse(url=url, status_code=302)
-        except Exception as e:
-            print(f"⚠️ S3 presign failed for processed file, will try local: {e}")
-
-    # Resolve the actual file path we can stream (prefer processed over original)
-    file_path = None
-    
     # Build candidate keys with processed first
     candidate_keys = []
     if getattr(job, "processed_file_path", None):
         candidate_keys.append(job.processed_file_path)
     if getattr(job, "original_file_path", None):
         candidate_keys.append(job.original_file_path)
+    
+    # Skip S3 for localhost development - always use local storage
+    # In production, enable S3 by setting USE_S3=true in environment
+    use_s3 = os.getenv("USE_S3", "false").lower() == "true"
+    if use_s3:
+        for key in candidate_keys:
+            if key and str(key).startswith("uploads/"):
+                try:
+                    url = s3_service.generate_presigned_url(key, expiration=3600)
+                    if url:
+                        print(f"✅ Redirecting to S3 for streaming: {key}")
+                        return RedirectResponse(url=url, status_code=302)
+                except Exception as e:
+                    print(f"⚠️ S3 presign failed for {key}, will try local: {e}")
+                    break
+    else:
+        print("📁 Using local storage for streaming (S3 disabled)")
+
+    # Resolve the actual file path we can stream locally (fallback)
+    file_path = None
     
     # Try direct absolute paths first (if any were stored as absolute)
     for key in candidate_keys:
@@ -567,6 +717,43 @@ def stream_video(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Video file not found"
         )
+
+    # If preview is requested, generate or reuse a blurred preview file
+    preview_flag = request.query_params.get("preview")
+    if preview_flag and preview_flag not in ("0", "false", "False"): 
+        try:
+            preview_dir = os.path.join("local_storage", "previews")
+            os.makedirs(preview_dir, exist_ok=True)
+            preview_path = os.path.join(preview_dir, f"{job.id}.mp4")
+
+            # Recreate if missing or older than source
+            need_generate = True
+            if os.path.exists(preview_path):
+                try:
+                    need_generate = os.path.getmtime(preview_path) < os.path.getmtime(file_path)
+                except Exception:
+                    need_generate = False
+
+            if need_generate:
+                ffmpeg_bin = os.getenv("FFMPEG_BIN", "ffmpeg")
+                # Build conservative blur + scale filter for legibility while obscuring content
+                vf = "scale=min(720,iw):-2,boxblur=10:2"
+                cmd = [
+                    ffmpeg_bin, "-y", "-i", file_path,
+                    "-vf", vf,
+                    "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+                    "-c:a", "aac", "-movflags", "+faststart",
+                    preview_path,
+                ]
+                print(f"▶️ Generating preview: {' '.join(cmd)}")
+                subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, text=True)
+
+            # Serve the preview file instead
+            file_path = preview_path
+        except subprocess.CalledProcessError as e:
+            print(f"⚠️ Preview generation failed, falling back to original/processed: {e}")
+        except Exception as e:
+            print(f"⚠️ Preview error: {e}")
     
     # Byte-range support for reliable playback
     file_size = os.path.getsize(file_path)
@@ -606,7 +793,12 @@ def stream_video(
         return StreamingResponse(iter_file(file_path, start, chunk_size), status_code=206, headers=headers)
 
     # No range header: return full file
-    return FileResponse(file_path, media_type="video/mp4")
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET, OPTIONS",
+        "Access-Control-Allow-Headers": "*",
+    }
+    return FileResponse(file_path, media_type="video/mp4", headers=headers)
 
 # ===== STRIPE PAYMENT ENDPOINTS =====
 
