@@ -97,7 +97,89 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
-# Upload video for processing
+# Public upload endpoint for embed widget (no authentication required)
+@app.post("/api/public/upload", response_model=VideoUploadResponse)
+def public_upload(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """Public upload endpoint for embed widget - no authentication required"""
+    # Validate file type
+    if not file.content_type.startswith('video/'):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be a video"
+        )
+    
+    # Validate file size (500MB limit)
+    file_size = 0
+    content = file.file.read()
+    file_size = len(content)
+    file.file.seek(0)  # Reset file pointer
+    
+    max_size = 500 * 1024 * 1024  # 500MB
+    if file_size > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size must be less than 500MB"
+        )
+    
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    
+    # Save file temporarily
+    with tempfile.NamedTemporaryFile(delete=False, suffix=file_extension) as temp_file:
+        temp_file.write(content)
+        temp_path = temp_file.name
+    
+    # Upload to local storage (public uploads go to free tier)
+    s3_key = f"uploads/free/public/{unique_filename}"
+    
+    # Try S3 first, fallback to local storage
+    upload_success = False
+    try:
+        upload_success = s3_service.upload_file(temp_path, s3_key)
+    except Exception as e:
+        print(f"S3 upload failed, using local storage: {e}")
+        upload_success = local_storage.upload_file(temp_path, s3_key)
+    
+    if not upload_success:
+        os.unlink(temp_path)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload file"
+        )
+    
+    # Create job record (no user_id for public uploads)
+    job = Job(
+        user_id=None,  # Anonymous/public upload
+        original_filename=file.filename,
+        original_file_path=s3_key,
+        status=JobStatus.PENDING
+    )
+    db.add(job)
+    db.commit()
+    db.refresh(job)
+    
+    # Return response with redirect URL
+    print(f"✅ Public job {job.id} created successfully")
+    
+    # Clean up temp file
+    try:
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+            print(f"✅ Temp file cleaned up: {temp_path}")
+    except Exception as e:
+        print(f"⚠️  Temp file cleanup failed: {e}")
+    
+    return VideoUploadResponse(
+        job_id=job.id,
+        message="Video uploaded successfully. Proceed to select watermarks.",
+        redirect_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/process/{job.id}"
+    )
+
+# Upload video for processing (authenticated users)
 @app.post("/api/videos/upload", response_model=VideoUploadResponse)
 def upload_video(
     file: UploadFile = File(...),

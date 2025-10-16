@@ -1,0 +1,123 @@
+<!-- Sora Watermark Remover Widget -->
+<div id="sora-watermark-widget" style="
+  max-width: 600px;
+  margin: 0 auto;
+  background: #2a2a2a;
+  border: 2px dashed #404040;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+">
+  <div style="color: #8b5cf6; font-size: 4rem; margin-bottom: 1.5rem;">📹</div>
+  <h3 style="color: white; margin-bottom: 1rem; font-size: 1.2rem;">Remove Watermarks with AI Precision</h3>
+  <p style="color: #a0a0a0; margin-bottom: 2rem;">Upload your video to remove watermarks instantly</p>
+  
+  <input type="file" id="video-upload" accept="video/*" style="display: none;">
+  <button id="upload-btn" onclick="document.getElementById('video-upload').click()" style="
+    background: #8b5cf6;
+    color: white;
+    border: none;
+    padding: 12px 32px;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 2rem;
+  ">Upload Video</button>
+  
+  <div id="upload-progress" style="display: none; margin-bottom: 2rem;">
+    <div style="background: #404040; border-radius: 8px; padding: 8px; margin-bottom: 8px;">
+      <div id="progress-bar" style="background: #8b5cf6; height: 8px; border-radius: 4px; width: 0%; transition: width 0.3s;"></div>
+    </div>
+    <p style="color: #a0a0a0; font-size: 0.9rem; margin: 0;">Uploading...</p>
+  </div>
+  
+  <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 2K</span>
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">≤ 500MB</span>
+  </div>
+  
+  <div style="display: flex; justify-content: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+    <span style="color: #a0a0a0; font-size: 0.9rem;">Supported formats:</span>
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">mp4</span>
+    <span style="background: #2a2a2a; color: white; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem;">m4v</span>
+  </div>
+  
+  <p style="font-size: 0.85rem; color: #888; margin-top: 1rem;">
+    By uploading a video you agree to our Terms of Use and Privacy Policy.
+  </p>
+</div>
+
+<script>
+// Production URLs
+const BACKEND_URL = 'https://api.sorawatermarks.com';
+const FRONTEND_URL = 'https://app.sorawatermarks.com';
+
+document.getElementById('video-upload').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  // Validate file type
+  if (!file.type.startsWith('video/')) {
+    alert('Please select a video file');
+    return;
+  }
+  
+  // Validate file size (500MB limit)
+  const maxSize = 500 * 1024 * 1024; // 500MB
+  if (file.size > maxSize) {
+    alert('File size must be less than 500MB');
+    return;
+  }
+  
+  // Show progress
+  document.getElementById('upload-progress').style.display = 'block';
+  document.getElementById('upload-btn').style.display = 'none';
+  
+  // Upload file
+  uploadFile(file);
+});
+
+function uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  // Simulate progress
+  let progress = 0;
+  const progressInterval = setInterval(() => {
+    progress += Math.random() * 15;
+    if (progress > 90) progress = 90;
+    document.getElementById('progress-bar').style.width = progress + '%';
+  }, 200);
+  
+  fetch(`${BACKEND_URL}/api/public/upload`, {
+    method: 'POST',
+    body: formData
+  })
+  .then(response => {
+    clearInterval(progressInterval);
+    document.getElementById('progress-bar').style.width = '100%';
+    
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status}`);
+    }
+    return response.json();
+  })
+  .then(data => {
+    // Redirect to frontend with job ID
+    setTimeout(() => {
+      window.open(`${FRONTEND_URL}/process/${data.job_id}`, '_blank');
+    }, 500);
+  })
+  .catch(error => {
+    console.error('Upload failed:', error);
+    alert('Upload failed. Please try again.');
+    
+    // Reset UI
+    document.getElementById('upload-progress').style.display = 'none';
+    document.getElementById('upload-btn').style.display = 'inline-block';
+    document.getElementById('video-upload').value = '';
+  });
+}
+</script>

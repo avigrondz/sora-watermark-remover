@@ -68,6 +68,7 @@ class SubscriptionResponse(BaseModel):
 class VideoUploadResponse(BaseModel):
     job_id: int
     message: str
+    redirect_url: Optional[str] = None
 
 class VideoDownloadResponse(BaseModel):
     download_url: str
