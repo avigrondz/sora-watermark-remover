@@ -135,6 +135,21 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 def get_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
+# Handle CORS preflight requests for public upload
+@app.options("/api/public/upload")
+def public_upload_options():
+    """Handle CORS preflight requests for public upload"""
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "POST, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
+
 # Public upload endpoint for embed widget (no authentication required)
 @app.post("/api/public/upload", response_model=VideoUploadResponse)
 def public_upload(
@@ -245,6 +260,20 @@ def public_upload(
         job_id=job.id,
         message="Video uploaded successfully. Proceed to select watermarks.",
         redirect_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/process/{job.id}"
+    )
+
+# Handle CORS preflight for public job status
+@app.options("/api/public/jobs/{job_id}/status")
+def public_job_status_options():
+    from fastapi.responses import Response
+    return Response(
+        status_code=200,
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
     )
 
 # Public: get job status (no auth)
