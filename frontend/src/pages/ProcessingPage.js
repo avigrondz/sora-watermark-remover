@@ -4,6 +4,7 @@ import { Card, Typography, Steps, Button, message, Progress, Space, Alert } from
 import { PlayCircleOutlined, CheckCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import WatermarkSelector from '../components/WatermarkSelector';
 import { videoAPI, publicVideoAPI } from '../services/api';
+import { API_BASE_URL } from '../config/api';
 
 const { Title, Text } = Typography;
 const { Step } = Steps;
@@ -126,7 +127,7 @@ const ProcessingPage = () => {
     if (showBlurredPreview) {
       return publicVideoAPI.getPreviewStreamUrl(jobId);
     } else {
-      return `${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/videos/${jobId}/stream`;
+      return `${API_BASE_URL}/api/videos/${jobId}/stream`;
     }
   };
 
@@ -159,7 +160,7 @@ const ProcessingPage = () => {
   return (
     <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
       <Title level={2}>Process Video</Title>
-      <Text type="secondary">Remove watermarks from your video</Text>
+      <Text style={{ color: '#666', fontSize: '16px' }}>Remove watermarks from your video</Text>
       
       <div style={{ marginTop: '30px' }}>
         <Steps current={currentStep} items={steps} />

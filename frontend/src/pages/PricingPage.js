@@ -1,6 +1,7 @@
 import React from 'react';
 import { Row, Col, Card, Typography, Button, Space, List } from 'antd';
 import { CheckOutlined, CrownOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { API_BASE_URL } from '../config/api';
 
 const { Title, Text } = Typography;
 
@@ -85,7 +86,7 @@ const PricingPage = () => {
         }
 
         // Call backend to create checkout session
-        const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/stripe/create-checkout`, {
+        const response = await fetch(`${API_BASE_URL}/api/stripe/create-checkout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

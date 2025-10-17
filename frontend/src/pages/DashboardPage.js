@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Row, Col, Card, Typography, Button, Space, message, Empty, Alert, Tag } from 'antd';
+import { API_BASE_URL } from '../config/api';
 import { 
   UploadOutlined, 
   DownloadOutlined, 
@@ -50,7 +51,7 @@ const DashboardPage = () => {
 
   const fetchSubscriptionStatus = async () => {
     try {
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/api/subscription/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/subscription/status`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
