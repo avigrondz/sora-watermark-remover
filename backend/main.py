@@ -32,6 +32,43 @@ from services.video_processor import process_video_with_delogo
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
+# Run database migrations
+def run_startup_migrations():
+    """Run any necessary database migrations on startup"""
+    try:
+        from sqlalchemy import text
+        from app.database import engine
+        
+        with engine.connect() as connection:
+            # Check if watermark_selections column exists
+            check_sql = """
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name = 'jobs' AND column_name = 'watermark_selections';
+            """
+            
+            result = connection.execute(text(check_sql))
+            existing_columns = [row[0] for row in result]
+            
+            if 'watermark_selections' not in existing_columns:
+                print("🔄 Adding watermark_selections column...")
+                migration_sql = "ALTER TABLE jobs ADD COLUMN watermark_selections TEXT;"
+                connection.execute(text(migration_sql))
+                connection.commit()
+                print("✅ Added watermark_selections column")
+            else:
+                print("✅ watermark_selections column already exists")
+                
+    except Exception as e:
+        error_msg = str(e).lower()
+        if "duplicate column name" in error_msg or "column already exists" in error_msg:
+            print("✅ watermark_selections column already exists")
+        else:
+            print(f"⚠️ Migration warning: {e}")
+
+# Run migrations on startup
+run_startup_migrations()
+
 # Initialize Stripe
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
