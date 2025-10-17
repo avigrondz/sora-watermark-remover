@@ -303,34 +303,6 @@ document.getElementById('video-upload').addEventListener('change', function(e) {
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="cta-section">
-        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-          <Title level={2} style={{ color: 'white', marginBottom: '24px' }}>
-            Ready to Remove Watermarks?
-          </Title>
-          <Paragraph style={{ fontSize: '1.2rem', marginBottom: '32px', color: 'rgba(255,255,255,0.9)' }}>
-            Join thousands of content creators who trust our AI-powered watermark removal technology.
-          </Paragraph>
-          <Space size="large">
-            <Button 
-              type="primary" 
-              size="large"
-              onClick={() => navigate(isAuthenticated() ? '/dashboard' : '/register')}
-              className="cta-button"
-            >
-              {isAuthenticated() ? 'Go to Dashboard' : 'Start Free Trial'}
-            </Button>
-            <Button 
-              size="large"
-              onClick={() => navigate('/pricing')}
-              className="cta-button-secondary"
-            >
-              View Pricing
-            </Button>
-          </Space>
-        </div>
-      </div>
     </div>
   );
 };
