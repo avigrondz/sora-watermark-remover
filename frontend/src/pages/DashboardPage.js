@@ -156,13 +156,18 @@ const DashboardPage = () => {
     if (!subscriptionStatus) return null;
     
     const tier = subscriptionStatus.subscription_tier;
+    const is_admin = subscriptionStatus.is_admin;
     const expiresAt = subscriptionStatus.expires_at;
     
     let color = 'default';
     let text = tier;
     let icon = null;
     
-    if (tier === 'free') {
+    if (is_admin) {
+      color = 'purple';
+      text = 'Admin - Unlimited';
+      icon = <CrownOutlined />;
+    } else if (tier === 'free') {
       color = 'default';
       text = 'Free Trial';
     } else if (tier === 'monthly') {

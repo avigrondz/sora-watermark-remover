@@ -13,12 +13,13 @@ from datetime import datetime, timedelta
 import json
 
 from app.database import get_db, engine
-from app.models import Base, User, Job, JobStatus, SubscriptionTier
+from app.models import Base, User, Job, JobStatus, SubscriptionTier, CreditPurchase
 from app.schemas import (
     UserCreate, UserLogin, User as UserSchema, Token,
     JobCreate, Job as JobSchema, JobStatusResponse,
     VideoUploadResponse, VideoDownloadResponse,
-    SubscriptionCreate, SubscriptionResponse
+    SubscriptionCreate, SubscriptionResponse,
+    CreditPurchaseCreate, CreditPurchaseResponse, CreditPack, UserCreditsResponse
 )
 from app.auth import (
     verify_password, get_password_hash, create_access_token,
@@ -75,7 +76,26 @@ stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 # Stripe price IDs (you'll need to create these in your Stripe dashboard)
 STRIPE_PRICE_IDS = {
     "monthly": os.getenv("STRIPE_MONTHLY_PRICE_ID", "price_monthly_placeholder"),
-    "yearly": os.getenv("STRIPE_YEARLY_PRICE_ID", "price_yearly_placeholder")
+    "yearly": os.getenv("STRIPE_YEARLY_PRICE_ID", "price_yearly_placeholder"),
+    # Credit pack price IDs
+    "credits_10": os.getenv("STRIPE_CREDITS_10_PRICE_ID", "price_credits_10_placeholder"),
+    "credits_25": os.getenv("STRIPE_CREDITS_25_PRICE_ID", "price_credits_25_placeholder"),
+    "credits_50": os.getenv("STRIPE_CREDITS_50_PRICE_ID", "price_credits_50_placeholder"),
+    "credits_100": os.getenv("STRIPE_CREDITS_100_PRICE_ID", "price_credits_100_placeholder"),
+}
+
+# Credit system configuration
+CREDIT_PACKS = [
+    {"id": "credits_10", "name": "10 Credits", "credits": 10, "price": 500, "price_display": "$5.00", "popular": False},
+    {"id": "credits_25", "name": "25 Credits", "credits": 25, "price": 1000, "price_display": "$10.00", "popular": True},
+    {"id": "credits_50", "name": "50 Credits", "credits": 50, "price": 1800, "price_display": "$18.00", "popular": False},
+    {"id": "credits_100", "name": "100 Credits", "credits": 100, "price": 3000, "price_display": "$30.00", "popular": False},
+]
+
+# Subscription credit allocations
+SUBSCRIPTION_CREDITS = {
+    "monthly": 20,  # 20 credits per month for $12
+    "yearly": 300,  # 300 credits per year for $70 (better value)
 }
 
 app = FastAPI(title="Sora Watermark Remover API", version="1.0.0")
@@ -351,14 +371,24 @@ def upload_video(
     current_user: User = Depends(get_current_active_user),
     db: Session = Depends(get_db)
 ):
-    # Check free trial limits for free users
-    if current_user.subscription_tier == SubscriptionTier.FREE:
-        # Count existing jobs for this user (simple approach)
+    # Check credits for processing (admin users have unlimited access)
+    if current_user.is_admin:
+        # Admin users have unlimited access
+        print(f"✅ Admin user {current_user.email} - unlimited access granted")
+    elif current_user.subscription_tier == SubscriptionTier.FREE:
+        # Free users get 1 free upload
         existing_jobs = db.query(Job).filter(Job.user_id == current_user.id).count()
-        if existing_jobs >= 1:  # 1 free upload limit
+        if existing_jobs >= 1:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Free trial limit reached. Please subscribe to continue."
+                detail="Free trial limit reached. Please subscribe or purchase credits to continue."
+            )
+    else:
+        # Paid users need credits
+        if current_user.credits <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient credits. Please purchase more credits to continue."
             )
     
     # Validate file type
@@ -407,6 +437,14 @@ def upload_video(
         status=JobStatus.PENDING
     )
     db.add(job)
+    
+    # Deduct credit for paid users (skip admin users)
+    if not current_user.is_admin and current_user.subscription_tier != SubscriptionTier.FREE:
+        current_user.credits -= 1
+        print(f"✅ Deducted 1 credit from user {current_user.id}. Remaining credits: {current_user.credits}")
+    elif current_user.is_admin:
+        print(f"✅ Admin user {current_user.email} - no credit deduction")
+    
     db.commit()
     db.refresh(job)
     
@@ -954,13 +992,21 @@ def payment_success(session_id: str, db: Session = Depends(get_db)):
             if user_id:
                 user = db.query(User).filter(User.id == int(user_id)).first()
                 if user:
-                    # Update subscription tier
+                    # Update subscription tier and allocate credits
                     if plan == "monthly":
                         user.subscription_tier = SubscriptionTier.MONTHLY
                         user.subscription_expires_at = datetime.utcnow() + timedelta(days=30)
+                        user.credits += SUBSCRIPTION_CREDITS["monthly"]
+                        user.monthly_credits = SUBSCRIPTION_CREDITS["monthly"]
+                        user.last_credit_refill = datetime.utcnow()
+                        print(f"✅ Allocated {SUBSCRIPTION_CREDITS['monthly']} credits to user {user.id}")
                     elif plan == "yearly":
                         user.subscription_tier = SubscriptionTier.YEARLY
                         user.subscription_expires_at = datetime.utcnow() + timedelta(days=365)
+                        user.credits += SUBSCRIPTION_CREDITS["yearly"]
+                        user.yearly_credits = SUBSCRIPTION_CREDITS["yearly"]
+                        user.last_credit_refill = datetime.utcnow()
+                        print(f"✅ Allocated {SUBSCRIPTION_CREDITS['yearly']} credits to user {user.id}")
                     
                     db.commit()
                     
@@ -1030,10 +1076,23 @@ async def stripe_webhook(request: Request, db: Session = Depends(get_db)):
 def get_subscription_status(
     current_user: User = Depends(get_current_active_user)
 ):
-    return SubscriptionResponse(
-        subscription_tier=current_user.subscription_tier,
-        expires_at=current_user.subscription_expires_at
-    )
+    # For admin users, show unlimited credits
+    if current_user.is_admin:
+        return SubscriptionResponse(
+            subscription_tier=current_user.subscription_tier,
+            expires_at=current_user.subscription_expires_at,
+            credits=999999,  # Show unlimited for admin
+            monthly_credits=current_user.monthly_credits,
+            yearly_credits=current_user.yearly_credits
+        )
+    else:
+        return SubscriptionResponse(
+            subscription_tier=current_user.subscription_tier,
+            expires_at=current_user.subscription_expires_at,
+            credits=current_user.credits,
+            monthly_credits=current_user.monthly_credits,
+            yearly_credits=current_user.yearly_credits
+        )
 
 # Cancel subscription
 @app.post("/api/subscription/cancel")
@@ -1072,6 +1131,213 @@ def cancel_subscription(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Stripe error: {str(e)}"
+        )
+
+# ===== CREDIT SYSTEM ENDPOINTS =====
+
+# Get available credit packs
+@app.get("/api/credits/packs", response_model=List[CreditPack])
+def get_credit_packs():
+    """Get available credit packs for purchase"""
+    return [CreditPack(**pack) for pack in CREDIT_PACKS]
+
+# Get user's current credits
+@app.get("/api/credits/status", response_model=UserCreditsResponse)
+def get_user_credits(current_user: User = Depends(get_current_active_user)):
+    """Get user's current credit status"""
+    # For admin users, show unlimited credits
+    if current_user.is_admin:
+        return UserCreditsResponse(
+            credits=999999,  # Show unlimited for admin
+            monthly_credits=current_user.monthly_credits,
+            yearly_credits=current_user.yearly_credits,
+            last_credit_refill=current_user.last_credit_refill
+        )
+    else:
+        return UserCreditsResponse(
+            credits=current_user.credits,
+            monthly_credits=current_user.monthly_credits,
+            yearly_credits=current_user.yearly_credits,
+            last_credit_refill=current_user.last_credit_refill
+        )
+
+# Purchase credits
+@app.post("/api/credits/purchase")
+def purchase_credits(
+    purchase_data: CreditPurchaseCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Create a Stripe checkout session for credit purchase"""
+    try:
+        # Find the credit pack
+        credit_pack = None
+        for pack in CREDIT_PACKS:
+            if pack["credits"] == purchase_data.credits:
+                credit_pack = pack
+                break
+        
+        if not credit_pack:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid credit pack"
+            )
+        
+        # Create or get Stripe customer
+        stripe_customer_id = current_user.stripe_customer_id
+        if not stripe_customer_id:
+            customer = stripe.Customer.create(
+                email=current_user.email,
+                metadata={"user_id": str(current_user.id)}
+            )
+            stripe_customer_id = customer.id
+            current_user.stripe_customer_id = stripe_customer_id
+            db.commit()
+        
+        # Create checkout session for one-time payment
+        checkout_session = stripe.checkout.Session.create(
+            customer=stripe_customer_id,
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': credit_pack["name"],
+                        'description': f"{credit_pack['credits']} processing credits"
+                    },
+                    'unit_amount': credit_pack["price"],
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
+            success_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard?credits=success",
+            cancel_url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/credits?canceled=true",
+            metadata={
+                "user_id": str(current_user.id),
+                "credits": str(credit_pack["credits"]),
+                "type": "credit_purchase"
+            }
+        )
+        
+        return {"checkout_url": checkout_session.url}
+        
+    except stripe.error.StripeError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Stripe error: {str(e)}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        )
+
+# Handle successful credit purchase
+@app.get("/api/credits/success")
+def credit_purchase_success(session_id: str, db: Session = Depends(get_db)):
+    """Handle successful credit purchase"""
+    try:
+        # Retrieve the checkout session
+        session = stripe.checkout.Session.retrieve(session_id)
+        
+        if session.payment_status == "paid":
+            # Get user from metadata
+            user_id = session.metadata.get("user_id")
+            credits = int(session.metadata.get("credits", 0))
+            
+            if user_id and credits > 0:
+                user = db.query(User).filter(User.id == int(user_id)).first()
+                if user:
+                    # Add credits to user account
+                    user.credits += credits
+                    db.commit()
+                    
+                    # Create credit purchase record
+                    purchase = CreditPurchase(
+                        user_id=user.id,
+                        credits_purchased=credits,
+                        amount_paid=session.amount_total,
+                        currency=session.currency,
+                        status="completed",
+                        completed_at=datetime.utcnow()
+                    )
+                    db.add(purchase)
+                    db.commit()
+                    
+                    print(f"✅ Added {credits} credits to user {user.id}. Total credits: {user.credits}")
+                    
+                    return RedirectResponse(
+                        url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/dashboard?credits=success"
+                    )
+        
+        return RedirectResponse(
+            url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/credits?error=payment_failed"
+        )
+        
+    except Exception as e:
+        print(f"❌ Credit purchase success handler error: {e}")
+        return RedirectResponse(
+            url=f"{os.getenv('FRONTEND_URL', 'http://localhost:3000')}/credits?error=server_error"
+        )
+
+# Get user's credit purchase history
+@app.get("/api/credits/history", response_model=List[CreditPurchaseResponse])
+def get_credit_history(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Get user's credit purchase history"""
+    purchases = db.query(CreditPurchase).filter(
+        CreditPurchase.user_id == current_user.id
+    ).order_by(CreditPurchase.created_at.desc()).all()
+    
+    return purchases
+
+# Refill monthly credits (for cron job or manual trigger)
+@app.post("/api/credits/refill")
+def refill_monthly_credits(
+    current_user: User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    """Refill monthly credits for subscribed users"""
+    if current_user.subscription_tier == SubscriptionTier.MONTHLY:
+        # Check if it's time for monthly refill
+        now = datetime.utcnow()
+        if (not current_user.last_credit_refill or 
+            (now - current_user.last_credit_refill).days >= 30):
+            
+            current_user.credits += current_user.monthly_credits
+            current_user.last_credit_refill = now
+            db.commit()
+            
+            return {
+                "message": f"Refilled {current_user.monthly_credits} credits",
+                "total_credits": current_user.credits
+            }
+        else:
+            return {"message": "Monthly refill not yet due"}
+    
+    elif current_user.subscription_tier == SubscriptionTier.YEARLY:
+        # Check if it's time for yearly refill
+        now = datetime.utcnow()
+        if (not current_user.last_credit_refill or 
+            (now - current_user.last_credit_refill).days >= 365):
+            
+            current_user.credits += current_user.yearly_credits
+            current_user.last_credit_refill = now
+            db.commit()
+            
+            return {
+                "message": f"Refilled {current_user.yearly_credits} credits",
+                "total_credits": current_user.credits
+            }
+        else:
+            return {"message": "Yearly refill not yet due"}
+    
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active subscription for credit refill"
         )
 
 if __name__ == "__main__":

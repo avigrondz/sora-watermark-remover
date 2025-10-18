@@ -135,35 +135,79 @@ const ProcessingPage = () => {
     {
       title: 'Select Watermarks',
       description: 'Click and drag to select watermark areas',
-      icon: <PlayCircleOutlined />
+      icon: <PlayCircleOutlined style={{ color: '#1890ff' }} />
     },
     {
       title: 'Review Selection',
       description: 'Review your watermark selections',
-      icon: <CheckCircleOutlined />
+      icon: <CheckCircleOutlined style={{ color: '#1890ff' }} />
     },
     {
       title: 'Processing',
       description: 'AI is removing watermarks',
-      icon: isProcessing ? <LoadingOutlined /> : <CheckCircleOutlined />
+      icon: isProcessing ? <LoadingOutlined style={{ color: '#1890ff' }} /> : <CheckCircleOutlined style={{ color: '#1890ff' }} />
     }
   ];
 
   if (!job) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
+      <div className="processing-page-container processing-page-loading">
         <Title>Loading...</Title>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-      <Title level={2}>Process Video</Title>
-      <Text style={{ color: '#666', fontSize: '16px' }}>Remove watermarks from your video</Text>
+    <div className="processing-page-container">
+      <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+        <Title level={2} style={{ marginBottom: '10px' }}>Process Video</Title>
+        <Text className="processing-page-subtitle">Remove watermarks from your video</Text>
+      </div>
       
-      <div style={{ marginTop: '30px' }}>
-        <Steps current={currentStep} items={steps} />
+      <div style={{ marginBottom: '30px', width: '100%', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ 
+          display: 'flex', 
+          gap: '40px', 
+          margin: '0', 
+          padding: '0',
+          alignItems: 'flex-start'
+        }}>
+          {steps.map((step, index) => (
+            <div key={index} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              margin: '0',
+              padding: '0 10px',
+              minWidth: '150px'
+            }}>
+              <div style={{ 
+                color: '#1890ff', 
+                fontSize: '20px', 
+                marginBottom: '16px'
+              }}>
+                {step.icon}
+              </div>
+              <div style={{ 
+                color: 'white', 
+                fontSize: '16px', 
+                fontWeight: '600',
+                marginBottom: '12px',
+                lineHeight: '1.6'
+              }}>
+                {step.title}
+              </div>
+              <div style={{ 
+                color: '#e0e0e0', 
+                fontSize: '14px',
+                lineHeight: '1.6'
+              }}>
+                {step.description}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
       
       <div style={{ marginTop: '30px' }}>

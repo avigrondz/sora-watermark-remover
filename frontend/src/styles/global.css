@@ -13,11 +13,29 @@ body {
   background-color: #f5f5f5;
   color: #333;
   transition: background-color 0.3s ease, color 0.3s ease;
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  overflow-x: hidden;
 }
 
 [data-theme="dark"] body {
-  background-color: #0a0a0a;
+  background-color: #0E2034;
   color: white;
+}
+
+/* Ensure no white sidebars anywhere */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  background-color: #f5f5f5;
+}
+
+[data-theme="dark"] html, 
+[data-theme="dark"] body, 
+[data-theme="dark"] #root {
+  background-color: #0E2034;
 }
 
 code {
@@ -764,6 +782,144 @@ code {
   background: #0a0a0a !important;
   color: white !important;
 }
+
+/* Processing page specific styling */
+.processing-page-container {
+  padding: 20px;
+  max-width: 100%;
+  margin: 0;
+  background: #f5f5f5;
+  color: #333;
+  min-height: 100vh;
+  width: 100vw;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+[data-theme="dark"] .processing-page-container {
+  background: #0E2034;
+  color: white;
+}
+
+.processing-page-loading {
+  text-align: center;
+}
+
+.processing-page-subtitle {
+  color: #666;
+  font-size: 16px;
+}
+
+[data-theme="dark"] .processing-page-subtitle {
+  color: #a0a0a0;
+}
+
+/* Steps component theme support */
+.ant-steps {
+  background: transparent !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: flex-start !important;
+  margin: 0 auto !important;
+  gap: 0px !important;
+}
+
+.ant-steps-item {
+  flex: 1 !important;
+  text-align: center !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.ant-steps-item-title {
+  color: #333 !important;
+  font-weight: 600 !important;
+  margin-bottom: 0px !important;
+  font-size: 15px !important;
+  line-height: 1.0 !important;
+}
+
+[data-theme="dark"] .ant-steps-item-title {
+  color: white !important;
+  font-weight: 600 !important;
+  margin-bottom: 0px !important;
+  font-size: 15px !important;
+  line-height: 1.0 !important;
+}
+
+.ant-steps-item-description {
+  color: #666 !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  line-height: 1.0 !important;
+  margin-bottom: 0 !important;
+  margin-top: 0 !important;
+}
+
+[data-theme="dark"] .ant-steps-item-description {
+  color: #e0e0e0 !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  line-height: 1.0 !important;
+  margin-bottom: 0 !important;
+  margin-top: 0 !important;
+}
+
+.ant-steps-item-icon {
+  background: transparent !important;
+  color: #1890ff !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+}
+
+[data-theme="dark"] .ant-steps-item-icon {
+  background: transparent !important;
+  color: #1890ff !important;
+  border: none !important;
+  width: 24px !important;
+  height: 24px !important;
+  line-height: 24px !important;
+}
+
+.ant-steps-item-process .ant-steps-item-icon {
+  background: transparent !important;
+  color: #1890ff !important;
+  border: none !important;
+}
+
+.ant-steps-item-finish .ant-steps-item-icon {
+  background: transparent !important;
+  color: #1890ff !important;
+  border: none !important;
+}
+
+.ant-steps-item-wait .ant-steps-item-icon {
+  background: transparent !important;
+  color: #1890ff !important;
+  border: none !important;
+}
+
+[data-theme="dark"] .ant-steps-item-wait .ant-steps-item-icon {
+  background: transparent !important;
+  color: #1890ff !important;
+  border: none !important;
+}
+
+/* Force all step icons to be light blue */
+.ant-steps-item-icon .anticon {
+  color: #1890ff !important;
+}
+
+[data-theme="dark"] .ant-steps-item-icon .anticon {
+  color: #1890ff !important;
+}
+
+/* Remove ultra-tight spacing - we're using custom steps now */
 
 .dashboard-title {
   color: #333 !important;

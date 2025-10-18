@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isSubscribed = () => {
-    return user && user.subscription_tier !== 'free';
+    return user && (user.subscription_tier !== 'free' || user.is_admin);
   };
 
   const value = {

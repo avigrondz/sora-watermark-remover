@@ -1,6 +1,6 @@
 # 🚀 Stripe Payment Integration Setup Guide
 
-This guide will help you set up Stripe payments for your Sora Watermark Remover application.
+This guide will help you set up Stripe payments with a credit-based system for your Sora Watermark Remover application.
 
 ## 📋 Prerequisites
 
@@ -17,7 +17,7 @@ This guide will help you set up Stripe payments for your Sora Watermark Remover 
 ### 1.2 Create Monthly Plan Product
 1. Click **"Add product"**
 2. **Product name**: "Sora Watermark Remover - Monthly"
-3. **Description**: "Monthly subscription for unlimited video processing"
+3. **Description**: "Monthly subscription with 20 processing credits"
 4. **Pricing model**: Recurring
 5. **Price**: $12.00 USD
 6. **Billing period**: Monthly
@@ -27,12 +27,51 @@ This guide will help you set up Stripe payments for your Sora Watermark Remover 
 ### 1.3 Create Yearly Plan Product
 1. Click **"Add product"**
 2. **Product name**: "Sora Watermark Remover - Yearly"
-3. **Description**: "Yearly subscription for unlimited video processing"
+3. **Description**: "Yearly subscription with 300 processing credits"
 4. **Pricing model**: Recurring
 5. **Price**: $70.00 USD
 6. **Billing period**: Yearly
 7. Click **"Save product"**
 8. **Copy the Price ID** (starts with `price_`) - you'll need this for `STRIPE_YEARLY_PRICE_ID`
+
+### 1.4 Create Credit Pack Products
+Create these one-time payment products for additional credits:
+
+#### 10 Credits Pack
+1. Click **"Add product"**
+2. **Product name**: "10 Processing Credits"
+3. **Description**: "One-time purchase of 10 processing credits"
+4. **Pricing model**: One-time
+5. **Price**: $5.00 USD
+6. Click **"Save product"**
+7. **Copy the Price ID** for `STRIPE_CREDITS_10_PRICE_ID`
+
+#### 25 Credits Pack
+1. Click **"Add product"**
+2. **Product name**: "25 Processing Credits"
+3. **Description**: "One-time purchase of 25 processing credits"
+4. **Pricing model**: One-time
+5. **Price**: $10.00 USD
+6. Click **"Save product"**
+7. **Copy the Price ID** for `STRIPE_CREDITS_25_PRICE_ID`
+
+#### 50 Credits Pack
+1. Click **"Add product"**
+2. **Product name**: "50 Processing Credits"
+3. **Description**: "One-time purchase of 50 processing credits"
+4. **Pricing model**: One-time
+5. **Price**: $18.00 USD
+6. Click **"Save product"**
+7. **Copy the Price ID** for `STRIPE_CREDITS_50_PRICE_ID`
+
+#### 100 Credits Pack
+1. Click **"Add product"**
+2. **Product name**: "100 Processing Credits"
+3. **Description**: "One-time purchase of 100 processing credits"
+4. **Pricing model**: One-time
+5. **Price**: $30.00 USD
+6. Click **"Save product"**
+7. **Copy the Price ID** for `STRIPE_CREDITS_100_PRICE_ID`
 
 ## 🔑 Step 2: Get Stripe API Keys
 
@@ -66,8 +105,16 @@ Add these variables to your `config.env` or production environment:
 STRIPE_PUBLISHABLE_KEY=pk_live_your_actual_key_here
 STRIPE_SECRET_KEY=sk_live_your_actual_secret_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_actual_webhook_secret_here
+
+# Subscription Price IDs
 STRIPE_MONTHLY_PRICE_ID=price_your_monthly_price_id_here
 STRIPE_YEARLY_PRICE_ID=price_your_yearly_price_id_here
+
+# Credit Pack Price IDs
+STRIPE_CREDITS_10_PRICE_ID=price_your_credits_10_price_id_here
+STRIPE_CREDITS_25_PRICE_ID=price_your_credits_25_price_id_here
+STRIPE_CREDITS_50_PRICE_ID=price_your_credits_50_price_id_here
+STRIPE_CREDITS_100_PRICE_ID=price_your_credits_100_price_id_here
 
 # Frontend URL (for redirects)
 FRONTEND_URL=https://your-frontend-domain.com
@@ -79,7 +126,25 @@ Use test keys (starts with `pk_test_` and `sk_test_`) and test price IDs.
 ### 3.3 For Production
 Use live keys (starts with `pk_live_` and `sk_live_`) and live price IDs.
 
-## 🧪 Step 4: Test the Integration
+## 🗄️ Step 4: Run Database Migration
+
+### 4.1 Run the Credit System Migration
+The credit system requires new database columns. Run the migration script:
+
+```bash
+cd backend
+python migrations/add_credit_system.py
+```
+
+This will add the following columns to your `users` table:
+- `credits` - Current available credits
+- `monthly_credits` - Credits allocated per month
+- `yearly_credits` - Credits allocated per year  
+- `last_credit_refill` - When credits were last refilled
+
+And create a new `credit_purchases` table to track credit purchases.
+
+## 🧪 Step 5: Test the Integration
 
 ### 4.1 Test Cards (Development Only)
 Use these test card numbers:
@@ -89,15 +154,25 @@ Use these test card numbers:
 
 Use any future expiry date and any 3-digit CVC.
 
-### 4.2 Test Flow
+### 5.2 Test Flow
 1. Start your application
 2. Register/login as a user
 3. Go to pricing page
-4. Click "Choose Monthly" or "Choose Yearly"
-5. You should be redirected to Stripe Checkout
-6. Use test card details
-7. Complete payment
-8. You should be redirected back to dashboard with success message
+4. Test subscription plans:
+   - Click "Choose Monthly" or "Choose Yearly"
+   - You should be redirected to Stripe Checkout
+   - Use test card details
+   - Complete payment
+   - You should be redirected back to dashboard with success message
+   - Check that credits were allocated (20 for monthly, 300 for yearly)
+5. Test credit purchases:
+   - Go to the "Additional Credits" section
+   - Click "Purchase Credits" on any credit pack
+   - Complete payment with test card
+   - Verify credits were added to your account
+6. Test video processing:
+   - Upload a video (should deduct 1 credit)
+   - Verify credit count decreased
 
 ## 🔍 Step 5: Verify Integration
 
@@ -160,6 +235,7 @@ Once everything is working:
 - Webhooks keep your database in sync with Stripe
 
 Your payment integration is now complete! 🚀
+
 
 
 

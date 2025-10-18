@@ -24,9 +24,16 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False)  # Admin users have unlimited credits
     subscription_tier = Column(Enum(SubscriptionTier), default=SubscriptionTier.FREE)
     subscription_expires_at = Column(DateTime, nullable=True)
     stripe_customer_id = Column(String, nullable=True)
+    
+    # Credit system
+    credits = Column(Integer, default=0)  # Current available credits
+    monthly_credits = Column(Integer, default=0)  # Credits allocated per month
+    yearly_credits = Column(Integer, default=0)  # Credits allocated per year
+    last_credit_refill = Column(DateTime, nullable=True)  # When credits were last refilled
     
     # Free trial tracking (commented out to avoid database migration issues)
     # free_uploads_used = Column(Integer, default=0)
@@ -57,3 +64,19 @@ class Job(Base):
     
     # Relationships
     user = relationship("User", back_populates="jobs")
+
+class CreditPurchase(Base):
+    __tablename__ = "credit_purchases"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    stripe_payment_intent_id = Column(String, nullable=True)  # For tracking Stripe payments
+    credits_purchased = Column(Integer, nullable=False)
+    amount_paid = Column(Integer, nullable=False)  # Amount in cents
+    currency = Column(String, default="usd")
+    status = Column(String, default="pending")  # pending, completed, failed
+    created_at = Column(DateTime, server_default=func.now())
+    completed_at = Column(DateTime, nullable=True)
+    
+    # Relationships
+    user = relationship("User")

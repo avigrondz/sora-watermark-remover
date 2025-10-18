@@ -170,9 +170,9 @@ const WatermarkSelector = ({ videoUrl, onWatermarksSelected, onNext }) => {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', padding: '20px' }}>
-      <Card>
-        <Title level={3}>Select Watermarks to Remove</Title>
-        <Text type="secondary">
+      <Card style={{ background: '#1f1f1f', border: '1px solid #404040' }}>
+        <Title level={3} style={{ color: 'white' }}>Select Watermarks to Remove</Title>
+        <Text style={{ color: '#e0e0e0' }}>
           Click and drag to select watermark areas in the video. You can select multiple areas.
         </Text>
         
@@ -182,9 +182,10 @@ const WatermarkSelector = ({ videoUrl, onWatermarksSelected, onNext }) => {
             style={{ 
               position: 'relative', 
               display: 'inline-block',
-              border: '2px solid #d9d9d9',
+              border: '2px solid #404040',
               borderRadius: '8px',
-              overflow: 'hidden'
+              overflow: 'hidden',
+              background: '#2a2a2a'
             }}
           >
             <video
@@ -269,27 +270,28 @@ const WatermarkSelector = ({ videoUrl, onWatermarksSelected, onNext }) => {
         
         {watermarks.length > 0 && (
           <div style={{ marginTop: '20px' }}>
-            <Title level={5}>Selected Watermarks:</Title>
+            <Title level={5} style={{ color: 'white' }}>Selected Watermarks:</Title>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
               {watermarks.map((watermark, index) => (
                 <div
                   key={watermark.id}
                   style={{
                     padding: '8px 12px',
-                    background: '#f0f0f0',
+                    background: '#2a2a2a',
                     borderRadius: '4px',
-                    border: '1px solid #d9d9d9',
+                    border: '1px solid #404040',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px'
                   }}
                 >
-                  <Text>Watermark {index + 1}</Text>
+                  <Text style={{ color: 'white' }}>Watermark {index + 1}</Text>
                   <Button 
                     size="small" 
                     type="text" 
                     danger
                     onClick={() => removeWatermark(watermark.id)}
+                    style={{ color: '#ff4d4f' }}
                   >
                     ×
                   </Button>

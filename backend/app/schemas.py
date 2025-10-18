@@ -17,8 +17,13 @@ class UserLogin(BaseModel):
 class User(UserBase):
     id: int
     is_active: bool
+    is_admin: bool
     subscription_tier: SubscriptionTier
     subscription_expires_at: Optional[datetime]
+    credits: int
+    monthly_credits: int
+    yearly_credits: int
+    last_credit_refill: Optional[datetime]
     created_at: datetime
     
     class Config:
@@ -63,6 +68,36 @@ class SubscriptionCreate(BaseModel):
 class SubscriptionResponse(BaseModel):
     subscription_tier: SubscriptionTier
     expires_at: Optional[datetime]
+    credits: int
+    monthly_credits: int
+    yearly_credits: int
+
+# Credit schemas
+class CreditPurchaseCreate(BaseModel):
+    credits: int  # Number of credits to purchase
+
+class CreditPurchaseResponse(BaseModel):
+    id: int
+    credits_purchased: int
+    amount_paid: int
+    currency: str
+    status: str
+    created_at: datetime
+    completed_at: Optional[datetime]
+
+class CreditPack(BaseModel):
+    id: str
+    name: str
+    credits: int
+    price: int  # Price in cents
+    price_display: str  # Formatted price like "$5.00"
+    popular: bool = False
+
+class UserCreditsResponse(BaseModel):
+    credits: int
+    monthly_credits: int
+    yearly_credits: int
+    last_credit_refill: Optional[datetime]
 
 # Video processing schemas
 class VideoUploadResponse(BaseModel):

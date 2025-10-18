@@ -2,7 +2,12 @@ from celery import Celery
 import os
 from dotenv import load_dotenv
 
-load_dotenv()
+# Try to load environment variables, but don't fail if there are encoding issues
+try:
+    load_dotenv()
+except UnicodeDecodeError:
+    # If there's an encoding issue, just continue without loading .env files
+    pass
 
 redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
 
